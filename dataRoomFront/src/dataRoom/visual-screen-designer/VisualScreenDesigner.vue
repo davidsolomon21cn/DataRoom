@@ -9,8 +9,10 @@ import Moveable, {
   type OnEvent,
   type OnResize,
   type OnResizeEnd,
+  type OnResizeStart,
   type OnRotate,
   type OnRotateEnd,
+  type OnRotateStart,
 } from 'vue3-moveable'
 import { VueSelecto } from 'vue3-selecto'
 import { applyChartTransformState, getChartByElement, getResourceUrl } from '@/dataRoom/utils/index.ts'
@@ -91,20 +93,44 @@ import {
 } from '@/dataRoom/designer/utils/page-thumbnail-save.ts'
 import { createVisualScreenPageConfigPayload } from './visual-screen-designer-history.ts'
 import {
-  applyVisualScreenAlignment,
   getVisualScreenAlignmentItems,
   getVisualScreenAlignmentLabel,
   type VisualScreenAlignmentCommand,
 } from './alignment'
 import VisualScreenChartTree from './components/VisualScreenChartTree.vue'
-import { groupChartsInParent, isGroupChart, normalizeGroupBounds, ungroupChartInParent } from './grouping'
+import FloatingSelectionToolbar from './components/FloatingSelectionToolbar.vue'
+import {
+  canExecuteFloatingSelectionToolbarCommand,
+  getFloatingSelectionBoundsFromRects,
+  getFloatingSelectionToolbarActions,
+  getFloatingSelectionToolbarLayoutKey,
+  getFloatingSelectionToolbarState,
+  getFloatingSelectionToolbarWidth,
+  type FloatingSelectionToolbarBounds,
+} from './floating-toolbar'
+import { canUngroupChart, groupChartsInParent, isGroupChart, normalizeGroupBounds, ungroupChartsInParent } from './grouping'
+import { applyVisualScreenSelectionLayout, normalizeVisualScreenSelectionContainerLayout } from './selection-layout'
+import {
+  getRenderableSelectedChartIds,
+  getVisualScreenControlPanelSelectionState,
+  getVisualScreenRenderableSelectedTargets,
+  getVisualScreenScopedChartIdByElement,
+  getVisualScreenScopedChartIdsByElements,
+  isVisualScreenMoveableEventTarget,
+  normalizeVisualScreenSelectedChartIds,
+  shouldHandleVisualScreenChartTreeClick,
+  shouldStopVisualScreenSelectoDragStart,
+  shouldToggleVisualScreenChartTreeClickSelection,
+} from './selection-state'
 
 const router = useRouter()
 const route = useRoute()
 const canvasContainer = ref<HTMLElement | null>(null)
 const canvasCaptureTargetRef = ref<HTMLElement | null>(null)
 const moveableRef = ref<{ updateRect: () => void } | null>(null)
+const selectoRef = ref<{ setSelectedTargets: (targets: Element[]) => void } | null>(null)
 const canvasViewportRef = ref<HTMLElement | null>(null)
+const canvasSelectionViewportRef = ref<HTMLElement | null>(null)
 const activeChart = ref<ChartConfig<unknown>>()
 const selectedChartIds = ref<string[]>([])
 const editingScopeParentId = ref<string | undefined>(undefined)
@@ -138,6 +164,14 @@ const canvasPanPointerId = ref<number | null>(null)
 const lastCanvasPanPoint = ref<DesignerViewportPoint | null>(null)
 const rulerPointerPosition = ref<DesignerViewportPoint | null>(null)
 const isRulerInteracting = ref(false)
+const isChartTransforming = ref(false)
+const suppressNextCanvasSelectionClick = ref(false)
+const pendingSelectedChartTogglePointer = ref<{
+  pointerId: number
+  chartId: string
+  clientX: number
+  clientY: number
+} | null>(null)
 const isCanvasPanModeActive = computed(() => spacePressed.value || isCanvasPanning.value)
 const isCanvasInteractionBlocked = computed(() => isCanvasPanModeActive.value || isRulerInteracting.value)
 // 记录右侧控制面板是否为页面配置
@@ -231,28 +265,124 @@ const editingScopeBreadcrumb = computed<Array<{ id?: string; title: string }>>((
 
   return [...breadcrumb, ...ancestors]
 })
-const moveableTargets: ComputedRef<(HTMLElement | null)[]> = computed(() => {
-  return selectedChartIds.value
-    .map((chartId) => document.querySelector<HTMLElement>(`.chart-wrapper[data-dr-id="${CSS.escape(chartId)}"][data-dr-scope-child="true"]`))
-    .filter((target): target is HTMLElement => Boolean(target))
+const moveableTargets: ComputedRef<HTMLElement[]> = computed(() => {
+  void floatingToolbarGeometryTick.value
+  const selectionViewport = canvasSelectionViewportRef.value
+  if (!selectionViewport) {
+    return []
+  }
+  const renderedTargets = Array.from(selectionViewport.querySelectorAll<HTMLElement>('.chart-wrapper[data-dr-scope-child="true"]'))
+  return getVisualScreenRenderableSelectedTargets(selectedChartIds.value, renderedTargets)
 })
 const selectedCharts = computed(() => {
   const chartById = new Map(currentScopeCharts.value.map((chart) => [chart.id, chart]))
   return selectedChartIds.value.map((chartId) => chartById.get(chartId)).filter((chart): chart is ChartConfig<unknown> => Boolean(chart))
 })
+const renderableSelectedChartIds = computed(() => getRenderableSelectedChartIds(selectedChartIds.value, moveableTargets.value.map((target) => target.dataset.drId || '')))
+const renderableSelectedCharts = computed(() => {
+  const chartById = new Map(selectedCharts.value.map((chart) => [chart.id, chart]))
+  return renderableSelectedChartIds.value.map((chartId) => chartById.get(chartId)).filter((chart): chart is ChartConfig<unknown> => Boolean(chart))
+})
+const renderableSelectedChartCount = computed(() => renderableSelectedCharts.value.length)
+const renderableSelectedGroupChart = computed(() => renderableSelectedCharts.value.length === 1 && isGroupChart(renderableSelectedCharts.value[0]!))
+const canUngroupRenderableSelectedChart = computed(() => renderableSelectedCharts.value.some((chart) => canUngroupChart(chart)))
 const selectedChartCount = computed(() => selectedCharts.value.length)
 const selectedGroupChart = computed(() => selectedCharts.value.length === 1 && isGroupChart(selectedCharts.value[0]!))
-const canGroupSelectedCharts = computed(() => selectedCharts.value.length >= 2)
-const canUngroupSelectedChart = computed(() => selectedGroupChart.value)
 const selectoScopeChildTargets = ['.chart-wrapper[data-dr-scope-child="true"]']
-const alignmentMenuItems = computed(() => getVisualScreenAlignmentItems(selectedChartCount.value))
-const canUseAlignmentMenu = computed(() => selectedChartCount.value >= 2)
+const floatingToolbarGeometryTick = ref(0)
+const floatingToolbarWrapRef = ref<HTMLElement | null>(null)
+const floatingToolbarSize = ref({
+  width: 0,
+  height: 0,
+  layoutKey: '',
+})
+
+const floatingToolbarLayoutOptions = computed(() => ({
+  selectedChartCount: renderableSelectedChartCount.value,
+  selectedGroupChart: renderableSelectedGroupChart.value,
+  canUngroup: canUngroupRenderableSelectedChart.value,
+  alignableChartCount: renderableSelectedGroupChart.value ? 0 : renderableSelectedChartCount.value,
+  groupableChartCount: renderableSelectedGroupChart.value ? 0 : renderableSelectedChartCount.value,
+  distributableChartCount: renderableSelectedGroupChart.value ? 0 : renderableSelectedChartCount.value,
+}))
+const selectionQuickActions = computed(() => getFloatingSelectionToolbarActions(floatingToolbarLayoutOptions.value))
+const canGroupSelectedCharts = computed(() => selectionQuickActions.value.showGroup)
+const alignmentMenuItems = computed(() => getVisualScreenAlignmentItems(floatingToolbarLayoutOptions.value.alignableChartCount || 0))
+const canUseAlignmentMenu = computed(() => selectionQuickActions.value.showAlignment)
+const floatingToolbarLayoutKey = computed(() => getFloatingSelectionToolbarLayoutKey(floatingToolbarLayoutOptions.value))
+
+const updateFloatingToolbarGeometry = () => {
+  floatingToolbarGeometryTick.value += 1
+  nextTick(() => {
+    const rect = floatingToolbarWrapRef.value?.getBoundingClientRect()
+    if (!rect) {
+      return
+    }
+    floatingToolbarSize.value = {
+      width: rect.width,
+      height: rect.height,
+      layoutKey: floatingToolbarLayoutKey.value,
+    }
+    floatingToolbarGeometryTick.value += 1
+  })
+}
+
+const floatingToolbarViewport = computed(() => {
+  void floatingToolbarGeometryTick.value
+  const rect = canvasSelectionViewportRef.value?.getBoundingClientRect()
+  return {
+    width: rect?.width || designerViewport.value.viewportWidth,
+    height: rect?.height || designerViewport.value.viewportHeight,
+  }
+})
+
+const floatingToolbarSelectionBounds = computed<FloatingSelectionToolbarBounds | null>(() => {
+  void floatingToolbarGeometryTick.value
+  if (selectedChartIds.value.length === 0) {
+    return null
+  }
+  const viewportRect = canvasSelectionViewportRef.value?.getBoundingClientRect()
+  if (!viewportRect) {
+    return null
+  }
+  const selectedRects = moveableTargets.value
+    .filter((target): target is HTMLElement => Boolean(target))
+    .map((target) => target.getBoundingClientRect())
+  if (selectedRects.length === 0) {
+    return null
+  }
+  return getFloatingSelectionBoundsFromRects(viewportRect, selectedRects)
+})
+
+const floatingToolbarState = computed(() =>
+  getFloatingSelectionToolbarState({
+    selectionBounds: floatingToolbarSelectionBounds.value,
+    viewport: floatingToolbarViewport.value,
+    toolbarWidth:
+      floatingToolbarSize.value.layoutKey === floatingToolbarLayoutKey.value
+        ? floatingToolbarSize.value.width
+        : getFloatingSelectionToolbarWidth(floatingToolbarLayoutOptions.value),
+    toolbarHeight: floatingToolbarSize.value.layoutKey === floatingToolbarLayoutKey.value ? floatingToolbarSize.value.height : 46,
+    selectedChartCount: floatingToolbarLayoutOptions.value.selectedChartCount,
+    selectedGroupChart: renderableSelectedGroupChart.value,
+    canUngroup: canUngroupRenderableSelectedChart.value,
+    alignableChartCount: floatingToolbarLayoutOptions.value.alignableChartCount,
+    groupableChartCount: floatingToolbarLayoutOptions.value.groupableChartCount,
+    distributableChartCount: floatingToolbarLayoutOptions.value.distributableChartCount,
+    interactionBlocked: isCanvasInteractionBlocked.value || isChartTransforming.value,
+  }),
+)
 
 const syncActiveChartReference = () => {
   if (editingScopeParentId.value && !findChartReference(editingScopeParentId.value, chartList.value)) {
     editingScopeParentId.value = undefined
   }
   selectedChartIds.value = normalizeSelectedChartIds(selectedChartIds.value)
+  if (selectedChartIds.value.length === 0) {
+    activeChart.value = undefined
+    rightControlPanelSetting.value = true
+    return
+  }
   if (!activeChart.value) {
     return
   }
@@ -267,10 +397,19 @@ const syncActiveChartReference = () => {
   activeChart.value = reference.chart
 }
 
+const syncDesignerSelectionOverlay = () => {
+  updateMoveableRect()
+  updateFloatingToolbarGeometry()
+}
+
+const syncSelectoSelectedTargets = () => {
+  nextTick(() => {
+    selectoRef.value?.setSelectedTargets(moveableTargets.value)
+  })
+}
+
 const normalizeSelectedChartIds = (chartIds: string[]) => {
-  const uniqueIds = Array.from(new Set(chartIds))
-  const currentScopeChartIds = new Set(currentScopeCharts.value.map((chart) => chart.id))
-  return uniqueIds.filter((chartId) => currentScopeChartIds.has(chartId))
+  return normalizeVisualScreenSelectedChartIds(chartIds, currentScopeCharts.value)
 }
 
 const syncActiveChartFromSelection = () => {
@@ -281,6 +420,7 @@ const syncActiveChartFromSelection = () => {
 
   if (validSelectedIds.length === 0) {
     activeChart.value = undefined
+    rightControlPanelSetting.value = true
     return
   }
 
@@ -294,15 +434,16 @@ const setSelectedCharts = (chartIds: string[]) => {
   selectedChartIds.value = nextSelectedIds
   syncActiveChartFromSelection()
 
-  if (nextSelectedIds.length === 1) {
-    rightControlPanelShow.value = true
-    rightControlPanelSetting.value = false
-  } else if (nextSelectedIds.length > 1) {
-    rightControlPanelSetting.value = false
-    rightControlPanelShow.value = false
-  }
+  const nextPanelState = getVisualScreenControlPanelSelectionState({
+    selectedChartCount: nextSelectedIds.length,
+    panelVisible: rightControlPanelShow.value,
+    showingPageSettings: rightControlPanelSetting.value,
+  })
+  rightControlPanelShow.value = nextPanelState.panelVisible
+  rightControlPanelSetting.value = nextPanelState.showingPageSettings
 
   updateMoveableRect()
+  syncSelectoSelectedTargets()
 }
 
 const selectSingleChart = (chartId: string) => {
@@ -331,6 +472,7 @@ const clearChartSelection = () => {
   contextMenuVisible.value = false
   rightControlPanelSetting.value = true
   updateMoveableRect()
+  syncSelectoSelectedTargets()
 }
 
 const toggleChartSelection = (chartId: string) => {
@@ -344,17 +486,34 @@ const toggleChartSelection = (chartId: string) => {
 }
 
 const getChartIdsByElements = (elements: Array<HTMLElement | SVGElement>) => {
-  return elements
-    .filter((target) => target.getAttribute('data-dr-scope-child') === 'true')
-    .map((target) => target.getAttribute('data-dr-id'))
-    .filter((chartId): chartId is string => Boolean(chartId))
+  return getVisualScreenScopedChartIdsByElements(elements)
 }
 
 const getChartIdByEventTarget = (target: EventTarget | null) => {
   if (!(target instanceof Element)) {
     return null
   }
-  return target.closest<HTMLElement>('.chart-wrapper[data-dr-scope-child="true"]')?.getAttribute('data-dr-id') || null
+  return getVisualScreenScopedChartIdByElement(target)
+}
+
+const getSelectedChartIdByViewportPoint = (event: MouseEvent) => {
+  const chartIds = getVisualScreenScopedChartIdsByElements(document.elementsFromPoint(event.clientX, event.clientY))
+  return chartIds.find((chartId) => selectedChartIds.value.includes(chartId)) || null
+}
+
+const getSelectedChartIdForPointerEvent = (event: PointerEvent | MouseEvent) => {
+  const directChartId = getChartIdByEventTarget(event.target)
+  if (directChartId && selectedChartIds.value.includes(directChartId)) {
+    return directChartId
+  }
+  if (isVisualScreenMoveableEventTarget(event.target)) {
+    return getSelectedChartIdByViewportPoint(event)
+  }
+  return null
+}
+
+const isFloatingToolbarEventTarget = (target: EventTarget | null) => {
+  return target instanceof Element && Boolean(target.closest('.floating-selection-toolbar-wrap'))
 }
 
 const getChartIdFromEventPathByParent = (event: MouseEvent, parentId: string) => {
@@ -385,6 +544,7 @@ const deleteChartWithHistory = (chartId: string, label: string = '删除组件')
     editingScopeParentId.value = removed.parent.parentType === 'chart-children' ? removed.parent.parentId : undefined
   }
   syncActiveChartReference()
+  syncDesignerSelectionOverlay()
   return true
 }
 
@@ -396,7 +556,7 @@ const setChartHidden = (chartId: string, hidden: boolean) => {
 
   reference.chart.hide = hidden
   syncActiveChartReference()
-  updateMoveableRect()
+  syncDesignerSelectionOverlay()
   return true
 }
 
@@ -438,6 +598,7 @@ const moveChartLayer = (chartId: string, direction: ChartLayerMoveDirection) => 
 
   editorHistory.record(createReorderChartHistoryEntry(label, 'visual-screen-designer', reference.parent, chartId, reference.index, targetIndex))
   syncActiveChartReference()
+  syncDesignerSelectionOverlay()
   return true
 }
 
@@ -449,7 +610,7 @@ const applyHistoryAction = (action: 'undo' | 'redo') => {
 
   contextMenuVisible.value = false
   syncActiveChartReference()
-  updateMoveableRect()
+  syncDesignerSelectionOverlay()
   return true
 }
 
@@ -498,39 +659,66 @@ const setEditingScopeFromBreadcrumb = (scopeId?: string) => {
 
 const onGroupSelectedCharts = () => {
   if (!canGroupSelectedCharts.value) {
+    ElMessage.info('请选择至少两个同级组件进行组合')
     return
   }
 
   const before = currentScopeCharts.value.map((chart) => cloneChartConfig(chart))
-  const result = groupChartsInParent(currentScopeCharts.value, selectedChartIds.value, '组合')
+  const groupBoundsBefore = captureEditingScopeGroupLayoutState()
+  const result = groupChartsInParent(currentScopeCharts.value, renderableSelectedChartIds.value, '组合')
   if (!result.changed) {
+    ElMessage.info('当前选择无法组合')
     return
   }
 
+  normalizeEditingScopeGroupBounds()
   const after = currentScopeCharts.value.map((chart) => cloneChartConfig(chart))
-  editorHistory.record(createReplaceChartChildrenHistoryEntry('组合', 'visual-screen-designer', currentScopeParentRef.value, before, after))
+  const groupBoundsAfter = captureEditingScopeGroupLayoutState()
+  editorHistory.record(
+    createReplaceChartChildrenHistoryEntry(
+      '组合',
+      'visual-screen-designer',
+      currentScopeParentRef.value,
+      before,
+      after,
+      groupBoundsBefore,
+      groupBoundsAfter,
+    ),
+  )
   setSelectedCharts(result.selectedIds)
+  syncDesignerSelectionOverlay()
 }
 
 const onUngroupSelectedChart = () => {
-  if (!canUngroupSelectedChart.value) {
-    return
-  }
-
-  const groupId = selectedChartIds.value[0]
-  if (!groupId) {
+  if (!canUngroupRenderableSelectedChart.value) {
+    ElMessage.info('当前选择没有可取消的组合')
     return
   }
 
   const before = currentScopeCharts.value.map((chart) => cloneChartConfig(chart))
-  const result = ungroupChartInParent(currentScopeCharts.value, groupId)
+  const groupBoundsBefore = captureEditingScopeGroupLayoutState()
+  const result = ungroupChartsInParent(currentScopeCharts.value, renderableSelectedChartIds.value)
   if (!result.changed) {
+    ElMessage.info('当前选择没有可取消的组合')
     return
   }
 
+  normalizeEditingScopeGroupBounds()
   const after = currentScopeCharts.value.map((chart) => cloneChartConfig(chart))
-  editorHistory.record(createReplaceChartChildrenHistoryEntry('取消组合', 'visual-screen-designer', currentScopeParentRef.value, before, after))
+  const groupBoundsAfter = captureEditingScopeGroupLayoutState()
+  editorHistory.record(
+    createReplaceChartChildrenHistoryEntry(
+      '取消组合',
+      'visual-screen-designer',
+      currentScopeParentRef.value,
+      before,
+      after,
+      groupBoundsBefore,
+      groupBoundsAfter,
+    ),
+  )
   setSelectedCharts(result.selectedIds)
+  syncDesignerSelectionOverlay()
 }
 
 /**
@@ -676,7 +864,18 @@ const onRightClick = (e: MouseEvent, chart: ChartConfig<unknown>) => {
   })
 }
 
-const onChartTreeClick = (_event: MouseEvent, chart: ChartConfig<unknown>, parentId: string | undefined) => {
+const onChartTreeClick = (event: MouseEvent, chart: ChartConfig<unknown>, parentId: string | undefined) => {
+  if (!shouldHandleVisualScreenChartTreeClick(event)) {
+    return
+  }
+  if (shouldToggleVisualScreenChartTreeClickSelection(event)) {
+    if (editingScopeParentId.value !== parentId) {
+      selectChartInScope(chart, parentId)
+      return
+    }
+    toggleChartSelection(chart.id)
+    return
+  }
   selectChartInScope(chart, parentId)
 }
 
@@ -1021,9 +1220,43 @@ const captureSelectedChartsLayoutState = () => {
   return new Map(selectedCharts.value.map((chart) => [chart.id, captureChartLayoutState(chart)]))
 }
 
+const captureSelectedLayoutStateWithEditingGroup = () => {
+  const state = captureSelectedChartsLayoutState()
+  if (editingScopeParentId.value) {
+    const groupReference = findChartReference(editingScopeParentId.value, chartList.value)
+    if (groupReference) {
+      state.set(groupReference.chart.id, captureChartLayoutState(groupReference.chart))
+    }
+  }
+  return state
+}
+
+const getEditingScopeGroupChart = () => {
+  if (!editingScopeParentId.value) {
+    return null
+  }
+  return findChartReference(editingScopeParentId.value, chartList.value)?.chart || null
+}
+
+const captureEditingScopeGroupLayoutState = () => {
+  const group = getEditingScopeGroupChart()
+  if (!group) {
+    return undefined
+  }
+  return new Map([[group.id, captureChartLayoutState(group)]])
+}
+
+const normalizeEditingScopeGroupBounds = () => {
+  const group = getEditingScopeGroupChart()
+  if (!group) {
+    return false
+  }
+  return normalizeGroupBounds(group).changed
+}
+
 const rememberGroupGestureStartLayout = () => {
   groupGestureStartLayoutState.clear()
-  captureSelectedChartsLayoutState().forEach((layout, chartId) => {
+  captureSelectedLayoutStateWithEditingGroup().forEach((layout, chartId) => {
     groupGestureStartLayoutState.set(chartId, layout)
   })
 }
@@ -1035,24 +1268,31 @@ const finalizeGroupGestureHistory = (label: string) => {
 
   const before = new Map(groupGestureStartLayoutState)
   groupGestureStartLayoutState.clear()
-  const after = captureSelectedChartsLayoutState()
+  normalizeVisualScreenSelectionContainerLayout(getEditingScopeGroupChart())
+  const after = captureSelectedLayoutStateWithEditingGroup()
   editorHistory.record(createChartsLayoutHistoryEntry(label, 'visual-screen-designer', before, after))
 }
 
 const onAlignmentCommand = (command: VisualScreenAlignmentCommand) => {
-  if (selectedCharts.value.length < 2) {
+  if (!canExecuteFloatingSelectionToolbarCommand({ ...floatingToolbarLayoutOptions.value, command })) {
     return
   }
 
-  const before = captureSelectedChartsLayoutState()
-  const result = applyVisualScreenAlignment(selectedCharts.value, command)
+  const before = captureSelectedLayoutStateWithEditingGroup()
+  const result = applyVisualScreenSelectionLayout({
+    selectedCharts: renderableSelectedCharts.value,
+    command,
+    currentGroup: getEditingScopeGroupChart(),
+  })
   if (!result.changed) {
+    ElMessage.info(`${getVisualScreenAlignmentLabel(command)}未产生位置变化`)
     return
   }
 
-  const after = captureSelectedChartsLayoutState()
+  const after = captureSelectedLayoutStateWithEditingGroup()
   editorHistory.record(createChartsLayoutHistoryEntry(getVisualScreenAlignmentLabel(command), 'visual-screen-designer', before, after))
-  updateMoveableRect()
+  syncActiveChartReference()
+  syncDesignerSelectionOverlay()
 }
 
 /**
@@ -1060,6 +1300,7 @@ const onAlignmentCommand = (command: VisualScreenAlignmentCommand) => {
  * @param e
  */
 const onDragStart = (e: OnDragStart) => {
+  isChartTransforming.value = true
   const chart = getChartByElement(e.target, chartList.value)
   rememberGestureStartLayout(chart.id)
 }
@@ -1078,11 +1319,13 @@ const onDrag = (e: OnDrag) => {
  * @param e
  */
 const onDragEnd = (e: OnDragEnd) => {
+  isChartTransforming.value = false
   const chart = getChartByElement(e.target, chartList.value)
   finalizeGestureHistory(chart.id, '移动组件')
 }
 
 const onDragGroupStart = () => {
+  isChartTransforming.value = true
   rememberGroupGestureStartLayout()
 }
 
@@ -1093,7 +1336,9 @@ const onDragGroup = (e: OnDragGroup) => {
 }
 
 const onDragGroupEnd = () => {
+  isChartTransforming.value = false
   finalizeGroupGestureHistory('移动组件')
+  updateMoveableRect()
 }
 
 const updateTransform = (e: OnEvent, transform: string, width?: number, height?: number) => {
@@ -1104,13 +1349,17 @@ const updateTransform = (e: OnEvent, transform: string, width?: number, height?:
     height,
   })
 }
+const onResizeStart = (e: OnResizeStart) => {
+  isChartTransforming.value = true
+  const chart = getChartByElement(e.target, chartList.value)
+  rememberGestureStartLayout(chart.id)
+}
+
 /**
  * 缩放组件中
  * @param e
  */
 const onResize = (e: OnResize) => {
-  const chart = getChartByElement(e.target, chartList.value)
-  rememberGestureStartLayout(chart.id)
   e.target.style.width = `${e.width}px`
   e.target.style.height = `${e.height}px`
   e.target.style.transform = e.drag.transform
@@ -1121,16 +1370,21 @@ const onResize = (e: OnResize) => {
  * @param e
  */
 const onResizeEnd = (e: OnResizeEnd) => {
+  isChartTransforming.value = false
   const chart = getChartByElement(e.target, chartList.value)
   finalizeGestureHistory(chart.id, '调整组件大小')
 }
+const onRotateStart = (e: OnRotateStart) => {
+  isChartTransforming.value = true
+  const chart = getChartByElement(e.target, chartList.value)
+  rememberGestureStartLayout(chart.id)
+}
+
 /**
  * 旋转组件中
  * @param e
  */
 const onRotate = (e: OnRotate) => {
-  const chart = getChartByElement(e.target, chartList.value)
-  rememberGestureStartLayout(chart.id)
   e.target.style.transform = e.transform
   updateTransform(e, e.transform)
 }
@@ -1140,6 +1394,7 @@ const onRotate = (e: OnRotate) => {
  * @param e
  */
 const onRotateEnd = (e: OnRotateEnd) => {
+  isChartTransforming.value = false
   const transform = e.lastEvent?.transform || e.target.style.transform
   updateTransform(e, transform)
   const chart = getChartByElement(e.target, chartList.value)
@@ -1150,8 +1405,14 @@ const onRotateEnd = (e: OnRotateEnd) => {
  * @param e
  */
 const onSelectDragStart = (e: import('selecto').OnDragStart<VanillaSelecto>) => {
-  console.log('onSelectorDragStart ', e)
-  if (isCanvasInteractionBlocked.value) {
+  const inputTarget = e.inputEvent?.target || null
+  const inputEvent = e.inputEvent as MouseEvent | PointerEvent | undefined
+  if (
+    isCanvasInteractionBlocked.value ||
+    isFloatingToolbarEventTarget(inputTarget) ||
+    isVisualScreenMoveableEventTarget(inputTarget) ||
+    shouldStopVisualScreenSelectoDragStart(getChartIdByEventTarget(inputTarget), selectedChartIds.value, inputEvent)
+  ) {
     e.stop()
     return
   }
@@ -1161,39 +1422,92 @@ const onSelectDragStart = (e: import('selecto').OnDragStart<VanillaSelecto>) => 
  * @param e
  */
 const onSelectEnd = (e: import('selecto').OnSelectEnd<VanillaSelecto>) => {
-  console.log('onSelectEnd', e)
-  if (e.selected.length <= 0) {
-    if (e.isClick) {
-      if (editingScopeParentId.value) {
-        exitGroupScope()
-      } else {
-        clearChartSelection()
+  if (isFloatingToolbarEventTarget(e.inputEvent?.target || null)) {
+    return
+  }
+  if (e.isClick) {
+    return
+  }
+
+  suppressNextCanvasSelectionClick.value = true
+  window.setTimeout(() => {
+    suppressNextCanvasSelectionClick.value = false
+  })
+
+  const selectedIds = getChartIdsByElements(e.selected)
+  if (selectedIds.length <= 0) {
+    return
+  }
+
+  setSelectedCharts(selectedIds)
+}
+
+const onCanvasSelectionViewportClick = (event: MouseEvent) => {
+  const inputTarget = event.target || null
+  if (suppressNextCanvasSelectionClick.value) {
+    suppressNextCanvasSelectionClick.value = false
+    return
+  }
+  if (isCanvasInteractionBlocked.value || isFloatingToolbarEventTarget(inputTarget)) {
+    return
+  }
+  if (isVisualScreenMoveableEventTarget(inputTarget)) {
+    if (shouldToggleVisualScreenChartTreeClickSelection(event)) {
+      const chartId = getSelectedChartIdByViewportPoint(event)
+      if (chartId) {
+        toggleChartSelection(chartId)
       }
     }
     return
   }
-
-  if (e.isClick) {
-    const inputEvent = e.inputEvent as MouseEvent | PointerEvent | undefined
-    const chartId = getChartIdByEventTarget(inputEvent?.target || null)
-    if (!chartId) {
-      return
-    }
-    if (inputEvent?.metaKey || inputEvent?.ctrlKey) {
-      toggleChartSelection(chartId)
-      return
-    }
-    selectSingleChart(chartId)
+  if (getChartIdByEventTarget(inputTarget)) {
     return
   }
+  if (editingScopeParentId.value) {
+    exitGroupScope()
+    return
+  }
+  clearChartSelection()
+}
 
-  setSelectedCharts(getChartIdsByElements(e.selected))
+const onCanvasSelectionViewportPointerDown = (event: PointerEvent) => {
+  pendingSelectedChartTogglePointer.value = null
+  if (!shouldToggleVisualScreenChartTreeClickSelection(event) || isCanvasInteractionBlocked.value || isFloatingToolbarEventTarget(event.target)) {
+    return
+  }
+  const chartId = getSelectedChartIdForPointerEvent(event)
+  if (!chartId) {
+    return
+  }
+  pendingSelectedChartTogglePointer.value = {
+    pointerId: event.pointerId,
+    chartId,
+    clientX: event.clientX,
+    clientY: event.clientY,
+  }
+}
+
+const onCanvasSelectionViewportPointerUp = (event: PointerEvent) => {
+  const pendingToggle = pendingSelectedChartTogglePointer.value
+  pendingSelectedChartTogglePointer.value = null
+  if (!pendingToggle || pendingToggle.pointerId !== event.pointerId) {
+    return
+  }
+  const moveDistance = Math.hypot(event.clientX - pendingToggle.clientX, event.clientY - pendingToggle.clientY)
+  if (moveDistance > 4) {
+    return
+  }
+  event.preventDefault()
+  event.stopPropagation()
+  suppressNextCanvasSelectionClick.value = true
+  toggleChartSelection(pendingToggle.chartId)
 }
 let canvasResizeObserver: ResizeObserver | undefined
 
 const updateMoveableRect = () => {
   nextTick(() => {
     moveableRef.value?.updateRect()
+    updateFloatingToolbarGeometry()
   })
 }
 
@@ -1289,6 +1603,7 @@ const clearCanvasPanning = (releasePointer: boolean = true) => {
 
 const resetCanvasPanState = () => {
   spacePressed.value = false
+  isChartTransforming.value = false
   clearCanvasPanning()
 }
 
@@ -1350,7 +1665,7 @@ const onCanvasPanPointerDown = (event: PointerEvent) => {
   if (!spacePressed.value || event.button !== 0) {
     return
   }
-  if (event.target instanceof Element && event.target.closest('.canvas-zoom-control, .ruler-overlay')) {
+  if (event.target instanceof Element && event.target.closest('.canvas-zoom-control, .ruler-overlay, .floating-selection-toolbar-wrap')) {
     return
   }
   event.preventDefault()
@@ -1412,8 +1727,15 @@ const onCanvasPanLostPointerCapture = (event: PointerEvent) => {
   }
 }
 
-const canStartSelectoDrag = () => {
-  return !isCanvasInteractionBlocked.value
+const canStartSelectoDrag = (event: { inputEvent?: Event | null }) => {
+  const inputEvent = event.inputEvent as MouseEvent | PointerEvent | undefined
+  const inputTarget = inputEvent?.target || null
+  return (
+    !isCanvasInteractionBlocked.value &&
+    !isFloatingToolbarEventTarget(inputTarget) &&
+    !isVisualScreenMoveableEventTarget(inputTarget) &&
+    !shouldStopVisualScreenSelectoDragStart(getChartIdByEventTarget(inputTarget), selectedChartIds.value, inputEvent)
+  )
 }
 
 const getCurrentPlatform = () => {
@@ -1422,7 +1744,7 @@ const getCurrentPlatform = () => {
 }
 
 const onCanvasWheel = (event: WheelEvent) => {
-  if (event.target instanceof Element && event.target.closest('.canvas-zoom-control')) {
+  if (event.target instanceof Element && event.target.closest('.canvas-zoom-control, .floating-selection-toolbar-wrap')) {
     return
   }
   event.preventDefault()
@@ -1438,6 +1760,13 @@ const computedZoomControlStyle = computed<CSSProperties>(() => {
   return {
     bottom: '16px',
     right: `${getDesignerZoomControlRightOffset(rightControlPanelShow.value)}px`,
+  }
+})
+
+const computedFloatingToolbarStyle = computed<CSSProperties>(() => {
+  return {
+    left: `${floatingToolbarState.value.left}px`,
+    top: `${floatingToolbarState.value.top}px`,
   }
 })
 
@@ -1498,6 +1827,14 @@ watch([canvasWidth, canvasHeight], () => {
 
 watch([leftToolPanelShow, rightControlPanelShow], () => {
   nextTick(syncDesignerViewportSize)
+})
+
+watch([selectedChartIds, designerViewport], () => {
+  nextTick(updateFloatingToolbarGeometry)
+})
+
+watch(floatingToolbarLayoutKey, () => {
+  nextTick(updateFloatingToolbarGeometry)
 })
 
 watch(
@@ -1701,7 +2038,7 @@ onBeforeUnmount(() => {
                   </el-dropdown>
                 </el-dropdown-item>
                 <el-dropdown-item v-if="canGroupSelectedCharts" @click="onGroupSelectedCharts">组合</el-dropdown-item>
-                <el-dropdown-item v-if="canUngroupSelectedChart" @click="onUngroupSelectedChart">取消组合</el-dropdown-item>
+                <el-dropdown-item v-if="floatingToolbarLayoutOptions.canUngroup" @click="onUngroupSelectedChart">取消组合</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -1790,7 +2127,13 @@ onBeforeUnmount(() => {
               <span v-if="index < editingScopeBreadcrumb.length - 1" class="scope-breadcrumb__separator">/</span>
             </template>
           </nav>
-          <div class="canvas-viewport">
+          <div
+            ref="canvasSelectionViewportRef"
+            class="canvas-viewport"
+            @pointerdown.capture="onCanvasSelectionViewportPointerDown"
+            @pointerup.capture="onCanvasSelectionViewportPointerUp"
+            @click="onCanvasSelectionViewportClick"
+          >
             <div ref="canvasContainer" class="canvas-content" :style="computedCanvasContentStyle">
               <div ref="canvasCaptureTargetRef" class="canvas-capture-content" :style="computedCanvasCaptureContentStyle">
                 <VisualScreenChartTree
@@ -1839,16 +2182,49 @@ onBeforeUnmount(() => {
                 @dragGroupStart="onDragGroupStart"
                 @dragGroup="onDragGroup"
                 @dragGroupEnd="onDragGroupEnd"
+                @resizeStart="onResizeStart"
                 @resizeEnd="onResizeEnd"
+                @rotateStart="onRotateStart"
                 @rotateEnd="onRotateEnd"
               />
             </div>
+            <div
+              v-if="floatingToolbarState.visible"
+              ref="floatingToolbarWrapRef"
+              class="floating-selection-toolbar-wrap"
+              :style="computedFloatingToolbarStyle"
+              @click.stop
+              @dblclick.stop
+              @mousedown.stop
+              @mouseup.stop
+              @pointerdown.stop
+              @pointermove.stop
+              @pointerup.stop
+              @pointercancel.stop
+              @touchstart.stop
+              @touchend.stop
+              @touchcancel.stop
+              @wheel.stop
+            >
+              <FloatingSelectionToolbar
+                :selected-chart-count="floatingToolbarLayoutOptions.selectedChartCount"
+                :selected-group-chart="floatingToolbarLayoutOptions.selectedGroupChart"
+                :can-ungroup="floatingToolbarLayoutOptions.canUngroup"
+                :alignable-chart-count="floatingToolbarLayoutOptions.alignableChartCount"
+                :groupable-chart-count="floatingToolbarLayoutOptions.groupableChartCount"
+                :distributable-chart-count="floatingToolbarLayoutOptions.distributableChartCount"
+                @align="onAlignmentCommand"
+                @group="onGroupSelectedCharts"
+                @ungroup="onUngroupSelectedChart"
+              />
+            </div>
             <VueSelecto
-              :container="canvasViewportRef"
-              :dragContainer="canvasViewportRef"
-              :rootContainer="canvasViewportRef"
+              ref="selectoRef"
+              :container="canvasSelectionViewportRef"
+              :dragContainer="canvasContainer"
+              :rootContainer="canvasSelectionViewportRef"
               :selectableTargets="selectoScopeChildTargets"
-              :selectByClick="!isCanvasInteractionBlocked"
+              :selectByClick="false"
               :selectFromInside="false"
               :continueSelect="false"
               :toggleContinueSelect="[['meta'], ['ctrl']]"
@@ -2175,6 +2551,12 @@ onBeforeUnmount(() => {
         position: relative;
         width: 100%;
         height: 100%;
+      }
+
+      & .floating-selection-toolbar-wrap {
+        position: absolute;
+        z-index: 1100;
+        pointer-events: auto;
       }
 
       & .canvas-zoom-control {

@@ -67,6 +67,8 @@ export interface ReplaceChartChildrenEntry extends BaseHistoryEntry {
   parent: ChartParentRef
   before: ChartConfig<unknown>[]
   after: ChartConfig<unknown>[]
+  layoutBefore?: ChartLayoutStateById
+  layoutAfter?: ChartLayoutStateById
 }
 
 export type HistoryEntry =
@@ -124,6 +126,12 @@ export const cloneChartConfig = <T>(chart: ChartConfig<T>): ChartConfig<T> => {
 
 const cloneChartList = (chartList: ChartConfig<unknown>[]) => {
   return chartList.map((chart) => cloneChartConfig(chart))
+}
+
+export const normalizeSiblingZOrder = (siblings: ChartConfig<unknown>[]) => {
+  siblings.forEach((chart, index) => {
+    chart.z = siblings.length - index - 1
+  })
 }
 
 const hasChartListChange = (before: ChartConfig<unknown>[], after: ChartConfig<unknown>[]) => {
@@ -296,12 +304,24 @@ export const createReplaceChartChildrenHistoryEntry = (
   parent: ChartParentRef,
   before: ChartConfig<unknown>[],
   after: ChartConfig<unknown>[],
+  layoutBefore?: Map<string, ChartLayoutState> | ChartLayoutStateById,
+  layoutAfter?: Map<string, ChartLayoutState> | ChartLayoutStateById,
 ): ReplaceChartChildrenEntry | null => {
-  if (!hasChartListChange(before, after)) {
+  const beforeLayouts = layoutBefore ? normalizeChartLayoutStateMap(layoutBefore) : undefined
+  const afterLayouts = layoutAfter ? normalizeChartLayoutStateMap(layoutAfter) : undefined
+  const hasLayoutChange = beforeLayouts && afterLayouts
+    ? Object.keys(beforeLayouts).some((chartId) => {
+      const beforeLayout = beforeLayouts[chartId]
+      const afterLayout = afterLayouts[chartId]
+      return beforeLayout && afterLayout && hasChartLayoutChange(beforeLayout, afterLayout)
+    })
+    : false
+
+  if (!hasChartListChange(before, after) && !hasLayoutChange) {
     return null
   }
 
-  return {
+  const entry: ReplaceChartChildrenEntry = {
     type: 'replace-chart-children',
     id: `replace-chart-children-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     label,
@@ -311,6 +331,11 @@ export const createReplaceChartChildrenHistoryEntry = (
     before: cloneChartList(before),
     after: cloneChartList(after),
   }
+  if (beforeLayouts && afterLayouts) {
+    entry.layoutBefore = structuredClone(beforeLayouts)
+    entry.layoutAfter = structuredClone(afterLayouts)
+  }
+  return entry
 }
 
 export class ChartLayoutBaselineTracker {
@@ -498,6 +523,7 @@ export const reorderChartWithinParent = (chartList: ChartConfig<unknown>[], opti
     return false
   }
   resolved.list.splice(boundedTargetIndex, 0, chart)
+  normalizeSiblingZOrder(resolved.list)
   return true
 }
 
@@ -649,8 +675,16 @@ export class EditorHistoryManager {
             chartId: entry.chartId,
             toIndex: direction === 'undo' ? entry.beforeIndex : entry.afterIndex,
           })
-        case 'replace-chart-children':
-          return replaceChartChildrenByParent(chartList, entry.parent, direction === 'undo' ? entry.before : entry.after)
+        case 'replace-chart-children': {
+          const replaced = replaceChartChildrenByParent(chartList, entry.parent, direction === 'undo' ? entry.before : entry.after)
+          if (!replaced) {
+            return false
+          }
+          if (!entry.layoutBefore || !entry.layoutAfter) {
+            return true
+          }
+          return applyChartsLayoutEntry(chartList, direction === 'undo' ? entry.layoutBefore : entry.layoutAfter)
+        }
         default:
           return false
       }

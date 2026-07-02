@@ -99,11 +99,12 @@ const distributeHorizontally = (charts: VisualScreenAlignmentChart[], bounds: Vi
   })
   const totalWidth = sorted.reduce((sum, item) => sum + item.w, 0)
   const gap = (bounds.width - totalWidth) / (sorted.length - 1)
-  let nextX = sorted[0]!.x
+  sorted[0]!.x = bounds.left
+  sorted[sorted.length - 1]!.x = bounds.right - sorted[sorted.length - 1]!.w
+  let nextX = sorted[0]!.x + sorted[0]!.w + gap
 
   sorted.forEach((item, index) => {
     if (index === 0 || index === sorted.length - 1) {
-      nextX = item.x + item.w + gap
       return
     }
     item.x = nextX
@@ -124,11 +125,12 @@ const distributeVertically = (charts: VisualScreenAlignmentChart[], bounds: Visu
   })
   const totalHeight = sorted.reduce((sum, item) => sum + item.h, 0)
   const gap = (bounds.height - totalHeight) / (sorted.length - 1)
-  let nextY = sorted[0]!.y
+  sorted[0]!.y = bounds.top
+  sorted[sorted.length - 1]!.y = bounds.bottom - sorted[sorted.length - 1]!.h
+  let nextY = sorted[0]!.y + sorted[0]!.h + gap
 
   sorted.forEach((item, index) => {
     if (index === 0 || index === sorted.length - 1) {
-      nextY = item.y + item.h + gap
       return
     }
     item.y = nextY

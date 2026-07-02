@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, type CSSProperties } from 'vue'
+import { computed } from 'vue'
 
 import { getComponent } from '@/dataRoom/components/AutoInstall.ts'
 import type { ChartConfig } from '@/dataRoom/components/type/ChartConfig.ts'
 import { filterVisibleCharts, getVisibleChartChildren } from '@/dataRoom/designer/utils/chart-visibility.ts'
 import { isGroupChart } from '@/dataRoom/visual-screen-designer/grouping'
+import { getVisualScreenChartWrapperStyle } from '@/dataRoom/visual-screen-designer/chart-style'
 
 defineOptions({ name: 'VisualScreenChartTree' })
 
@@ -25,26 +26,6 @@ const emit = defineEmits<{
 }>()
 
 const visibleCharts = computed(() => filterVisibleCharts(props.charts))
-
-const computedChartStyle = (chart: ChartConfig<unknown>): CSSProperties => {
-  let transform = `translate(${chart.x}px,${chart.y}px)`
-  if (chart.rotateX) {
-    transform += ` rotateX(${chart.rotateX}deg)`
-  }
-  if (chart.rotateY) {
-    transform += ` rotateY(${chart.rotateY}deg)`
-  }
-  if (chart.rotateZ) {
-    transform += ` rotateZ(${chart.rotateZ}deg)`
-  }
-
-  return {
-    position: 'absolute',
-    transform,
-    width: `${chart.w}px`,
-    height: `${chart.h}px`,
-  }
-}
 
 const isDirectScopeChild = (parentId: string | undefined) => parentId === props.scopeParentId
 
@@ -109,7 +90,7 @@ const forwardChartContextmenu = (event: MouseEvent, chart: ChartConfig<unknown>,
       :data-dr-id="chart.id"
       :data-dr-parent-id="parentId"
       :data-dr-scope-child="isDirectScopeChild(parentId)"
-      :style="computedChartStyle(chart)"
+      :style="getVisualScreenChartWrapperStyle(chart)"
       @click="onChartClick($event, chart)"
       @dblclick="onChartDoubleClick($event, chart)"
       @contextmenu="onChartContextmenu($event, chart)"
@@ -137,7 +118,7 @@ const forwardChartContextmenu = (event: MouseEvent, chart: ChartConfig<unknown>,
       :data-dr-id="chart.id"
       :data-dr-parent-id="parentId"
       :data-dr-scope-child="isDirectScopeChild(parentId)"
-      :style="computedChartStyle(chart)"
+      :style="getVisualScreenChartWrapperStyle(chart)"
     >
       <component v-if="!isGroupChart(chart)" :is="getComponent(chart.type)" :chart="chart" />
       <VisualScreenChartTree

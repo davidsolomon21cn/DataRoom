@@ -30,6 +30,12 @@ export interface UngroupChartResult {
   selectedIds: string[]
 }
 
+export interface UngroupChartsResult {
+  changed: boolean
+  insertedCharts: ChartConfig<unknown>[]
+  selectedIds: string[]
+}
+
 export interface NormalizeGroupBoundsResult {
   changed: boolean
 }
@@ -41,6 +47,10 @@ interface IndexedChart {
 
 export const isGroupChart = (chart: ChartConfig<unknown>): chart is ChartConfig<unknown> & { type: typeof DR_GROUP_TYPE } => {
   return chart.type === DR_GROUP_TYPE
+}
+
+export const canUngroupChart = (chart: ChartConfig<unknown>): chart is ChartConfig<unknown> & { children: ChartConfig<unknown>[] } => {
+  return isGroupChart(chart) && Array.isArray(chart.children) && chart.children.length > 0
 }
 
 export const createGroupChart = (options: CreateGroupChartOptions): ChartConfig<unknown> & { children: ChartConfig<unknown>[] } => {
@@ -168,7 +178,7 @@ export const ungroupChartInParent = (
   const groupIndex = siblings.findIndex((chart) => chart.id === groupId)
   const group = siblings[groupIndex]
 
-  if (!group || !isGroupChart(group) || !Array.isArray(group.children)) {
+  if (!group || !canUngroupChart(group)) {
     return {
       changed: false,
       insertedCharts: [],
@@ -189,5 +199,53 @@ export const ungroupChartInParent = (
     changed: true,
     insertedCharts,
     selectedIds: insertedCharts.map((chart) => chart.id),
+  }
+}
+
+export const ungroupChartsInParent = (
+  siblings: ChartConfig<unknown>[],
+  selectedIds: string[],
+): UngroupChartsResult => {
+  const selectedIdSet = new Set(selectedIds)
+  const insertedCharts: ChartConfig<unknown>[] = []
+  const nextSiblings: ChartConfig<unknown>[] = []
+  const nextSelectedIds: string[] = []
+  let changed = false
+
+  siblings.forEach((chart) => {
+    if (selectedIdSet.has(chart.id) && canUngroupChart(chart)) {
+      changed = true
+      const expandedChildren = chart.children.map((child) => {
+        const insertedChart = cloneChartConfig(child)
+        insertedChart.x += chart.x
+        insertedChart.y += chart.y
+        return insertedChart
+      })
+      insertedCharts.push(...expandedChildren)
+      nextSiblings.push(...expandedChildren)
+      nextSelectedIds.push(...expandedChildren.map((child) => child.id))
+      return
+    }
+
+    nextSiblings.push(chart)
+    if (selectedIdSet.has(chart.id)) {
+      nextSelectedIds.push(chart.id)
+    }
+  })
+
+  if (!changed) {
+    return {
+      changed: false,
+      insertedCharts: [],
+      selectedIds: [],
+    }
+  }
+
+  siblings.splice(0, siblings.length, ...nextSiblings)
+
+  return {
+    changed,
+    insertedCharts,
+    selectedIds: nextSelectedIds,
   }
 }

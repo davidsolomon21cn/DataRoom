@@ -90,7 +90,7 @@ const updateLayerChartHidden = (hidden: boolean) => {
     return
   }
   const updated = canvasInst.setChartHidden(layerNode.chart.id, hidden)
-  if (updated) {
+  if (updated && !hidden) {
     canvasInst.activeChartById(layerNode.chart.id)
   }
   closeLayerContextMenu()

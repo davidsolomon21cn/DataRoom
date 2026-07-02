@@ -5,11 +5,13 @@ import assert from 'node:assert/strict'
 
 import {
   DR_GROUP_TYPE,
+  canUngroupChart,
   createGroupChart,
   groupChartsInParent,
   isGroupChart,
   normalizeGroupBounds,
   ungroupChartInParent,
+  ungroupChartsInParent,
 } from './index.ts'
 import type { ChartConfig } from '@/dataRoom/components/type/ChartConfig.ts'
 
@@ -54,8 +56,8 @@ test('createGroupChart creates a structural group node', () => {
 
 test('groups same-parent charts and converts children to group-relative coordinates', () => {
   const siblings = [
-    chart('a', { x: 100, y: 80, w: 120, h: 60 }),
-    chart('b', { x: 260, y: 120, w: 80, h: 100 }),
+    chart('a', { x: 100, y: 80, w: 120, h: 60, z: 2 }),
+    chart('b', { x: 260, y: 120, w: 80, h: 100, z: 7 }),
     chart('c', { x: 500, y: 200, w: 90, h: 70 }),
   ]
 
@@ -68,9 +70,14 @@ test('groups same-parent charts and converts children to group-relative coordina
   assert.equal(result.group?.y, 80)
   assert.equal(result.group?.w, 240)
   assert.equal(result.group?.h, 140)
+  assert.equal(result.group?.z, 7)
   assert.deepEqual(result.group?.children?.map((item) => [item.id, item.x, item.y]), [
     ['a', 0, 0],
     ['b', 160, 40],
+  ])
+  assert.deepEqual(result.group?.children?.map((item) => [item.id, item.z]), [
+    ['a', 2],
+    ['b', 7],
   ])
 })
 
@@ -112,13 +119,14 @@ test('ungroups one level and converts direct children to parent coordinates', ()
     w: 220,
     h: 120,
     children: [
-      chart('a', { x: 0, y: 10, w: 100, h: 40 }),
+      chart('a', { x: 0, y: 10, w: 100, h: 40, z: 3 }),
       chart('nested', {
         type: DR_GROUP_TYPE,
         x: 120,
         y: 20,
         w: 80,
         h: 60,
+        z: 9,
         children: [chart('inner')],
       }),
     ],
@@ -133,7 +141,46 @@ test('ungroups one level and converts direct children to parent coordinates', ()
     ['a', 100, 60],
     ['nested', 220, 70],
   ])
+  assert.deepEqual(siblings.slice(1, 3).map((item) => [item.id, item.z]), [
+    ['a', 3],
+    ['nested', 9],
+  ])
   assert.equal(siblings[2]?.type, DR_GROUP_TYPE)
+})
+
+test('ungroups every selected group and keeps selected plain sibling selected', () => {
+  const firstGroup = createGroupChart({
+    title: '组合 1',
+    x: 100,
+    y: 50,
+    w: 220,
+    h: 120,
+    children: [chart('a', { x: 0, y: 10, w: 100, h: 40 })],
+  })
+  const secondGroup = createGroupChart({
+    title: '组合 2',
+    x: 400,
+    y: 200,
+    w: 160,
+    h: 100,
+    children: [chart('b', { x: 20, y: 30, w: 80, h: 40 })],
+  })
+  const plain = chart('plain', { x: 700, y: 80 })
+  const siblings = [chart('before'), firstGroup, plain, secondGroup, chart('after')]
+
+  const result = ungroupChartsInParent(siblings, [firstGroup.id, plain.id, secondGroup.id])
+
+  assert.equal(result.changed, true)
+  assert.deepEqual(siblings.map((item) => item.id), ['before', 'a', 'plain', 'b', 'after'])
+  assert.deepEqual(siblings.map((item) => [item.id, item.x, item.y]), [
+    ['before', 0, 0],
+    ['a', 100, 60],
+    ['plain', 700, 80],
+    ['b', 420, 230],
+    ['after', 0, 0],
+  ])
+  assert.deepEqual(result.insertedCharts.map((item) => item.id), ['a', 'b'])
+  assert.deepEqual(result.selectedIds, ['a', 'plain', 'b'])
 })
 
 test('recognizes persisted group without children but refuses to ungroup it', () => {
@@ -146,8 +193,38 @@ test('recognizes persisted group without children but refuses to ungroup it', ()
   const originalSiblings = [...siblings]
 
   assert.equal(isGroupChart(malformedGroup), true)
+  assert.equal(canUngroupChart(malformedGroup), false)
 
   const result = ungroupChartInParent(siblings, malformedGroup.id)
+
+  assert.equal(result.changed, false)
+  assert.deepEqual(result.insertedCharts, [])
+  assert.deepEqual(result.selectedIds, [])
+  assert.deepEqual(siblings, originalSiblings)
+})
+
+test('refuses to ungroup an empty group', () => {
+  const emptyGroup = createGroupChart({
+    title: '空组合',
+    x: 40,
+    y: 30,
+    w: 100,
+    h: 80,
+    children: [],
+  })
+  const siblings = [chart('before'), emptyGroup, chart('after')]
+  const originalSiblings = [...siblings]
+
+  assert.equal(canUngroupChart(emptyGroup), false)
+
+  const singleResult = ungroupChartInParent(siblings, emptyGroup.id)
+
+  assert.equal(singleResult.changed, false)
+  assert.deepEqual(singleResult.insertedCharts, [])
+  assert.deepEqual(singleResult.selectedIds, [])
+  assert.deepEqual(siblings, originalSiblings)
+
+  const result = ungroupChartsInParent(siblings, [emptyGroup.id])
 
   assert.equal(result.changed, false)
   assert.deepEqual(result.insertedCharts, [])

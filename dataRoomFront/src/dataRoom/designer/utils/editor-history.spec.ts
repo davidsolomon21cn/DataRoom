@@ -5,8 +5,11 @@ import assert from 'node:assert/strict'
 
 import {
   EditorHistoryManager,
+  captureChartLayoutState,
   cloneChartConfig,
+  createReorderChartHistoryEntry,
   createReplaceChartChildrenHistoryEntry,
+  reorderChartWithinParent,
   type ChartHistorySource,
 } from './editor-history.ts'
 import type { ChartConfig } from '@/dataRoom/components/type/ChartConfig.ts'
@@ -91,4 +94,82 @@ test('undo and redo replacing nested sibling list', () => {
   history.redo()
   assert.deepEqual(parent.children?.map((item) => item.id), ['nested-group'])
   assert.deepEqual(parent.children?.[0]?.children?.map((item) => item.id), ['child-a', 'child-b'])
+})
+
+test('undoes nested children replacement and parent layout as one history entry', () => {
+  const parent = createChart('parent', {
+    type: 'DrGroup',
+    x: 100,
+    y: 80,
+    w: 200,
+    h: 120,
+    children: [
+      createChart('nested-group', {
+        type: 'DrGroup',
+        x: -20,
+        y: -10,
+        w: 80,
+        h: 40,
+        children: [createChart('child-a', { x: 0, y: 0, w: 80, h: 40 })],
+      }),
+      createChart('child-b', { x: 160, y: 60, w: 40, h: 40 }),
+    ],
+  })
+  const chartList = [parent]
+  const beforeChildren = parent.children!.map((item) => cloneChartConfig(item))
+  const beforeParentLayout = captureChartLayoutState(parent)
+  const afterChildren = [
+    createChart('child-a', { x: 0, y: 0, w: 80, h: 40 }),
+    createChart('child-b', { x: 180, y: 70, w: 40, h: 40 }),
+  ]
+  const afterParentLayout = {
+    x: 80,
+    y: 70,
+    w: 220,
+    h: 110,
+    rotateX: 0,
+    rotateY: 0,
+    rotateZ: 0,
+  }
+  const history = createHistory(chartList, 'visual-screen-designer')
+
+  parent.children!.splice(0, parent.children!.length, ...afterChildren.map((item) => cloneChartConfig(item)))
+  Object.assign(parent, afterParentLayout)
+  history.record(
+    createReplaceChartChildrenHistoryEntry(
+      '取消组合',
+      'visual-screen-designer',
+      { parentType: 'chart-children', parentId: 'parent' },
+      beforeChildren,
+      afterChildren,
+      new Map([[parent.id, beforeParentLayout]]),
+      new Map([[parent.id, afterParentLayout]]),
+    ),
+  )
+
+  history.undo()
+
+  assert.deepEqual(parent.children?.map((item) => item.id), ['nested-group', 'child-b'])
+  assert.deepEqual([parent.x, parent.y, parent.w, parent.h], [100, 80, 200, 120])
+})
+
+test('reorders sibling list and normalizes z order for visual stacking', () => {
+  const chartList = [createChart('a', { z: 10 }), createChart('b', { z: 20 }), createChart('c', { z: 30 })]
+  const history = createHistory(chartList, 'visual-screen-designer')
+
+  const reordered = reorderChartWithinParent(chartList, {
+    parent: { parentType: 'root-chart-list' },
+    chartId: 'c',
+    toIndex: 0,
+  })
+
+  assert.equal(reordered, true)
+  assert.deepEqual(chartList.map((item) => item.id), ['c', 'a', 'b'])
+  assert.deepEqual(chartList.map((item) => item.z), [2, 1, 0])
+
+  history.record(createReorderChartHistoryEntry('图层置顶', 'visual-screen-designer', { parentType: 'root-chart-list' }, 'c', 2, 0))
+  history.undo()
+
+  assert.deepEqual(chartList.map((item) => item.id), ['a', 'b', 'c'])
+  assert.deepEqual(chartList.map((item) => item.z), [2, 1, 0])
 })

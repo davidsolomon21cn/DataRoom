@@ -6,7 +6,7 @@ import type {ChartConfig} from "@/dataRoom/components/type/ChartConfig.ts";
  * @param chartList
  */
 export const getChartByElement = (e: HTMLElement | SVGElement, chartList: ChartConfig<unknown>[]): ChartConfig<unknown> => {
-  const dataDrId: string | null = e.getAttribute('data-dr-id')
+  const dataDrId: string | null = e.getAttribute('data-dr-id') || e.closest<HTMLElement>('[data-dr-id]')?.getAttribute('data-dr-id') || null
   if (!dataDrId) {
     console.error(`未找到data-dr-id 配置`, e)
     throw new Error(`未找到data-dr-id配置`)

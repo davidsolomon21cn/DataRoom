@@ -46,10 +46,38 @@ test('distributes charts horizontally with fixed outer charts', () => {
   assert.deepEqual(charts.map((item) => item.x), [0, 45, 100])
 })
 
+test('distributes charts horizontally across the full selection bounds', () => {
+  const charts = [chart('a', 0, 0, 100, 20), chart('b', 20, 0, 20, 20), chart('c', 80, 0, 10, 20)]
+  const result = applyVisualScreenAlignment(charts, 'horizontal-distribute')
+  assert.equal(result.changed, true)
+  assert.deepEqual(charts.map((item) => item.x), [0, 85, 90])
+})
+
+test('distributes horizontally when the right bound is not the last chart origin', () => {
+  const charts = [chart('a', 0, 0, 10, 20), chart('b', 20, 0, 100, 20), chart('c', 80, 0, 10, 20)]
+  const result = applyVisualScreenAlignment(charts, 'horizontal-distribute')
+  assert.equal(result.changed, true)
+  assert.deepEqual(charts.map((item) => item.x), [0, 10, 110])
+})
+
 test('distributes charts vertically with fixed outer charts', () => {
   const charts = [chart('a', 0, 0, 10, 10), chart('b', 0, 30, 10, 20), chart('c', 0, 100, 10, 10)]
   applyVisualScreenAlignment(charts, 'vertical-distribute')
   assert.deepEqual(charts.map((item) => item.y), [0, 45, 100])
+})
+
+test('distributes charts vertically across the full selection bounds', () => {
+  const charts = [chart('a', 0, 0, 10, 100), chart('b', 0, 20, 10, 20), chart('c', 0, 80, 10, 10)]
+  const result = applyVisualScreenAlignment(charts, 'vertical-distribute')
+  assert.equal(result.changed, true)
+  assert.deepEqual(charts.map((item) => item.y), [0, 85, 90])
+})
+
+test('distributes vertically when the bottom bound is not the last chart origin', () => {
+  const charts = [chart('a', 0, 0, 10, 10), chart('b', 0, 20, 10, 100), chart('c', 0, 80, 10, 10)]
+  const result = applyVisualScreenAlignment(charts, 'vertical-distribute')
+  assert.equal(result.changed, true)
+  assert.deepEqual(charts.map((item) => item.y), [0, 10, 110])
 })
 
 test('allows negative spacing during distribution', () => {
