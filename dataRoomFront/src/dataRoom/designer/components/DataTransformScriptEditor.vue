@@ -1,0 +1,110 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { javascript } from '@codemirror/lang-javascript'
+import { eclipse } from '@uiw/codemirror-theme-eclipse'
+import { Codemirror } from 'vue-codemirror'
+
+const {
+  modelValue,
+  rows = 10,
+  showActions = true,
+  showFullscreenAction = true,
+} = defineProps<{
+  modelValue: string
+  rows?: number
+  showActions?: boolean
+  showFullscreenAction?: boolean
+}>()
+
+const emit = defineEmits<{
+  'update:modelValue': [value: string]
+  apply: []
+  fullscreen: []
+}>()
+
+const editorExtensions = [javascript(), eclipse]
+const lineHeightPx = 20
+
+const editorHeight = computed(() => `${Math.max(rows, 1) * lineHeightPx}px`)
+
+const editorStyle = computed(() => ({
+  height: editorHeight.value,
+  maxHeight: editorHeight.value,
+}))
+
+const handleUpdate = (value: string) => {
+  emit('update:modelValue', value)
+}
+
+const handleApply = () => {
+  emit('apply')
+}
+
+const handleFullscreen = () => {
+  emit('fullscreen')
+}
+</script>
+
+<template>
+  <div class="data-transform-script-editor">
+    <div class="data-transform-script-editor__body" :style="editorStyle">
+      <Codemirror
+        class="data-transform-script-editor__codemirror"
+        :model-value="modelValue"
+        :extensions="editorExtensions"
+        :indent-with-tab="true"
+        :tab-size="2"
+        placeholder="请输入数据处理 JS 脚本"
+        @update:model-value="handleUpdate"
+      />
+    </div>
+    <div class="data-transform-script-editor__actions" v-if="showActions">
+      <el-button type="primary" plain size="small" @click="handleApply">应用脚本</el-button>
+      <el-button v-if="showFullscreenAction" plain size="small" @click="handleFullscreen">放大编辑&帮助</el-button>
+    </div>
+  </div>
+</template>
+
+<style scoped lang="scss">
+.data-transform-script-editor {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--el-fill-color-blank);
+}
+
+.data-transform-script-editor__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.data-transform-script-editor__body {
+  min-width: 0;
+}
+
+.data-transform-script-editor__codemirror {
+  height: 100%;
+}
+
+.data-transform-script-editor :deep(.cm-editor) {
+  height: 100%;
+  max-width: 100%;
+  font-family: 'JetBrains Mono', 'SF Mono', SFMono-Regular, ui-monospace, Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+
+  .cm-cursor,
+  .cm-dropCursor {
+    border-left-color: var(--el-text-color-primary);
+  }
+}
+
+.data-transform-script-editor :deep(.cm-scroller) {
+  overflow: auto;
+}
+</style>

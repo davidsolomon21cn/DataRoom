@@ -9,6 +9,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -18,7 +19,7 @@ import java.io.IOException;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
-
+@Slf4j
 public class OperationLogFilter extends OncePerRequestFilter {
 
     private final OperationLogPolicy operationLogPolicy;
@@ -55,7 +56,7 @@ public class OperationLogFilter extends OncePerRequestFilter {
         context.setQueryParams(operationLogPolicy.sanitizeQueryString(wrappedRequest.getQueryString()));
         context.setRequestTime(new Date());
         context.setRequestStartNanos(System.nanoTime());
-
+        log.info("请求地址: {}",request.getRequestURI().toString());
         try {
             filterChain.doFilter(wrappedRequest, response);
         } finally {

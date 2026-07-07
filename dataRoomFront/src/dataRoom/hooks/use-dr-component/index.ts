@@ -6,6 +6,7 @@ import type {CanvasInst} from "@/dataRoom/designer/types/CanvasInst.ts";
 import type {ChartAction} from "@/dataRoom/components/type/ChartAction.ts";
 import type {ComponentExpose} from "@/dataRoom/components/type/ComponentExpose.ts";
 import {isStreamingDatasetType} from "@/dataRoom/dataset/streaming-dataset.ts";
+import { transformChartData } from './chart-data-transform.ts'
 
 interface UseDrComponentOptions {
   /**
@@ -51,7 +52,13 @@ export function useDrComponent(options: UseDrComponentOptions) {
       datasetCode: chart.dataset.code,
       paramMap: paramMap
     })
-    await changeData(res.data)
+    const transformedData = await transformChartData({
+      chart,
+      canvasInst,
+      data: res.data,
+      params: paramMap,
+    })
+    await changeData(transformedData)
   }
   /**
    * 修改组件数据

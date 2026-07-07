@@ -18,6 +18,7 @@ import type { ChartMockDataset } from '@/dataRoom/components/type/ChartMockDatas
 import type { Behavior } from '@/dataRoom/components/type/Behavior.ts'
 import type { GlobalVariable } from '@/dataRoom/designer/types/GlobalVariable.ts'
 import type { ChartAction } from '@/dataRoom/components/type/ChartAction.ts'
+import DataTransformScriptEditor from './DataTransformScriptEditor.vue'
 
 const canvasInst = inject(DrConst.CANVAS_INST) as CanvasInst
 /**
@@ -56,6 +57,7 @@ const mockDatasetDialogVisible = ref(false)
 const behaviors = ref<Behavior[]>([])
 const behaviorConfigDialogVisible = ref(false)
 const currentBehavior = ref<Behavior | null>(null)
+const scriptDialogVisible = ref(false)
 // 数据集输出字段列表
 const datasetOutputList = ref<DatasetOutputParam[]>([])
 // 数据集输入参数列表
@@ -258,6 +260,14 @@ const openBehaviorConfig = (behavior: Behavior) => {
   behaviorConfigDialogVisible.value = true
 }
 
+const openScriptDialog = () => {
+  scriptDialogVisible.value = true
+}
+
+const applyScriptDialog = () => {
+  triggerAutoRefresh()
+}
+
 /**
  * 获取数据集参数配置
  * @param paramName 参数名称
@@ -452,18 +462,13 @@ const triggerAutoRefresh = () => {
 
               <!-- 数据处理 -->
               <el-collapse-item name="script" title="数据处理">
-                <el-form :model="chartConfig.dataset" label-width="100px" label-position="left" size="small">
-                  <el-form-item label="处理脚本">
-                    <el-input
-                      v-model="chartConfig.dataset.script"
-                      type="textarea"
-                      :rows="8"
-                      placeholder="请输入数据处理JS脚本"
-                      class="field-full"
-                      @change="triggerAutoRefresh"
-                    ></el-input>
-                  </el-form-item>
-                </el-form>
+                <DataTransformScriptEditor
+                  v-model="chartConfig.dataset.script"
+                  class="field-full"
+                  :rows="10"
+                  @apply="triggerAutoRefresh"
+                  @fullscreen="openScriptDialog"
+                />
               </el-collapse-item>
             </el-collapse>
           </div>
@@ -517,6 +522,29 @@ const triggerAutoRefresh = () => {
         </div>
       </template>
       <el-empty v-else description="该组件暂未提供数据样例" :image-size="120" />
+    </el-dialog>
+
+    <!-- 数据处理脚本放大编辑对话框 -->
+    <el-dialog v-model="scriptDialogVisible" title="数据处理脚本" width="80%" :close-on-click-modal="false" @closed="applyScriptDialog">
+      <div class="data-transform-script-dialog">
+        <DataTransformScriptEditor
+          v-model="chartConfig.dataset.script"
+          :rows="20"
+          :show-actions="false"
+          :show-fullscreen-action="false"
+        />
+        <div class="data-transform-script-help">
+          <div class="data-transform-script-help__title">帮助说明</div>
+          <ul class="data-transform-script-help__list">
+            <li>通过 <code>bep.data</code> 获取数据集返回数据</li>
+            <li>通过 <code>bep.params</code> 获取本次数据集参数</li>
+            <li>通过 <code>bep.globals.get(name)</code> 读取全局变量</li>
+            <li>可以 <code>return</code> 新数据作为组件最终数据</li>
+            <li>不 return 时使用原始 bep.data，支持原地新增字段或格式化字段值</li>
+            <li>脚本异常时组件数据置空，并在控制台和页面提示错误</li>
+          </ul>
+        </div>
+      </div>
     </el-dialog>
 
     <!-- 交互配置对话框 -->
@@ -763,6 +791,37 @@ const triggerAutoRefresh = () => {
   :deep(.cm-scroller) {
     overflow: auto;
   }
+}
+
+.data-transform-script-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.data-transform-script-help {
+  padding: 12px;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 8px;
+  background: var(--el-fill-color-extra-light);
+  color: var(--el-text-color-regular);
+}
+
+.data-transform-script-help__title {
+  margin-bottom: 8px;
+  color: var(--el-text-color-primary);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.data-transform-script-help__list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--el-text-color-regular);
+  font-size: 12px;
+  line-height: 1.7;
+  letter-spacing: 0;
 }
 
 .mock-dataset-table {

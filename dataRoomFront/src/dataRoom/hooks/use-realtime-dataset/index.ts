@@ -2,6 +2,7 @@ import type { CanvasInst } from '@/dataRoom/designer/types/CanvasInst.ts'
 import type { ChartConfig } from '@/dataRoom/components/type/ChartConfig.ts'
 import { getCookie, getCookieName } from '@/dataRoom/utils/cookie.ts'
 import { isStreamingDatasetType } from '@/dataRoom/dataset/streaming-dataset.ts'
+import { transformChartData } from '@/dataRoom/hooks/use-dr-component/chart-data-transform.ts'
 
 interface UseRealtimeDatasetOptions {
   canvasInst: RealtimeDatasetCanvasInst
@@ -15,6 +16,11 @@ interface RealtimeDatasetMessage {
 
 interface DatasetSubscription {
   datasetCode: string
+  paramMap: Record<string, unknown>
+}
+
+interface DatasetChartState {
+  chart: ChartConfig<unknown>
   paramMap: Record<string, unknown>
 }
 
@@ -76,7 +82,7 @@ const resolveRealtimeDatasetUrl = () => {
 
 export function useRealtimeDataset(options: UseRealtimeDatasetOptions) {
   const { canvasInst } = options
-  const datasetChartMap = new Map<string, string[]>()
+  const datasetChartStateMap = new Map<string, DatasetChartState[]>()
   const latestDataMap = new Map<string, unknown>()
   const pendingChartIds = new Set<string>()
   let socket: WebSocket | null = null
@@ -84,7 +90,7 @@ export function useRealtimeDataset(options: UseRealtimeDatasetOptions) {
   let activeDatasetCodesKey = ''
 
   const buildDatasetIndex = () => {
-    datasetChartMap.clear()
+    datasetChartStateMap.clear()
     const subscriptions: DatasetSubscription[] = []
 
     walkCharts(getChartList(canvasInst), (chart) => {
@@ -93,13 +99,17 @@ export function useRealtimeDataset(options: UseRealtimeDatasetOptions) {
         return
       }
 
-      const chartIds = datasetChartMap.get(datasetCode) || []
-      chartIds.push(chart.id)
-      datasetChartMap.set(datasetCode, chartIds)
+      const paramMap = canvasInst.fillDatasetParams(chart)
+      const chartStates = datasetChartStateMap.get(datasetCode) || []
+      chartStates.push({
+        chart,
+        paramMap,
+      })
+      datasetChartStateMap.set(datasetCode, chartStates)
 
       subscriptions.push({
         datasetCode,
-        paramMap: canvasInst.fillDatasetParams(chart),
+        paramMap,
       })
     })
 
@@ -131,13 +141,19 @@ export function useRealtimeDataset(options: UseRealtimeDatasetOptions) {
     }
   }
 
-  const dispatchDatasetData = (datasetCode: string, data: unknown) => {
-    const chartIds = datasetChartMap.get(datasetCode) || []
+  const dispatchDatasetData = async (datasetCode: string, data: unknown) => {
+    const chartStates = datasetChartStateMap.get(datasetCode) || []
     const normalizedData = normalizeDatasetData(data)
 
-    chartIds.forEach((chartId) => {
-      scheduleChartUpdate(chartId, normalizedData)
-    })
+    for (const chartState of chartStates) {
+      const transformedData = await transformChartData({
+        chart: chartState.chart,
+        canvasInst: canvasInst as CanvasInst,
+        data: normalizedData,
+        params: chartState.paramMap,
+      })
+      scheduleChartUpdate(chartState.chart.id, transformedData)
+    }
   }
 
   const sendSubscriptions = (subscriptions: DatasetSubscription[]) => {
@@ -147,7 +163,7 @@ export function useRealtimeDataset(options: UseRealtimeDatasetOptions) {
 
     socket.send(JSON.stringify({
       type: 'subscribe',
-      datasetCodes: [...datasetChartMap.keys()],
+      datasetCodes: [...datasetChartStateMap.keys()],
       subscriptions,
     }))
   }
@@ -170,7 +186,7 @@ export function useRealtimeDataset(options: UseRealtimeDatasetOptions) {
 
   const reload = () => {
     const subscriptions = buildDatasetIndex()
-    const datasetCodes = [...datasetChartMap.keys()]
+    const datasetCodes = [...datasetChartStateMap.keys()]
     const datasetCodesKey = datasetCodes.slice().sort().join(',')
 
     if (datasetCodes.length === 0) {
@@ -197,7 +213,7 @@ export function useRealtimeDataset(options: UseRealtimeDatasetOptions) {
         if (message.type !== 'datasetData' || !message.datasetCode) {
           return
         }
-        dispatchDatasetData(message.datasetCode, message.data)
+        void dispatchDatasetData(message.datasetCode, message.data)
       } catch (error) {
         console.error('实时数据消息解析失败:', error)
       }
