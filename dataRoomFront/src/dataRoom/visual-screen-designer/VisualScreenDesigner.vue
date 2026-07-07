@@ -110,6 +110,7 @@ import {
 } from './floating-toolbar'
 import { canUngroupChart, groupChartsInParent, isGroupChart, normalizeGroupBounds, ungroupChartsInParent } from './grouping'
 import { applyVisualScreenSelectionLayout, normalizeVisualScreenSelectionContainerLayout } from './selection-layout'
+import { visualScreenKeyboardShortcuts } from './keyboard-shortcuts'
 import {
   getRenderableSelectedChartIds,
   getVisualScreenControlPanelSelectionState,
@@ -176,6 +177,7 @@ const isCanvasPanModeActive = computed(() => spacePressed.value || isCanvasPanni
 const isCanvasInteractionBlocked = computed(() => isCanvasPanModeActive.value || isRulerInteracting.value)
 // 记录右侧控制面板是否为页面配置
 const rightControlPanelSetting = ref(true)
+const keyboardShortcutDialogVisible = ref(false)
 const editorHistory = reactive(
   new EditorHistoryManager({
     source: 'visual-screen-designer',
@@ -2053,6 +2055,11 @@ onBeforeUnmount(() => {
             恢复
           </el-button>
         </div>
+        <div class="header-action">
+          <el-button size="small" aria-label="查看快捷键" title="查看快捷键" @click="keyboardShortcutDialogVisible = true">
+            快捷键
+          </el-button>
+        </div>
       </div>
       <div class="header-actions header-actions--secondary">
         <div class="header-action">
@@ -2310,6 +2317,13 @@ onBeforeUnmount(() => {
       <el-button @click="renameDialogVisible = false">取消</el-button>
       <el-button type="primary" @click="onRenameConfirm">确定</el-button>
     </template>
+  </el-dialog>
+  <el-dialog v-model="keyboardShortcutDialogVisible" title="快捷键" width="680px">
+    <el-table :data="visualScreenKeyboardShortcuts" border>
+      <el-table-column prop="feature" label="功能" min-width="180" />
+      <el-table-column prop="windows" label="Windows 快捷键" min-width="220" />
+      <el-table-column prop="macos" label="MacOS 快捷键" min-width="220" />
+    </el-table>
   </el-dialog>
   <PageHistoryDialog
     v-model="historyDialogVisible"
