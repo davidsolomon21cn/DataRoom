@@ -1,0 +1,16 @@
+.git
+.idea
+.vscode
+.DS_Store
+
+**/node_modules
+**/target
+**/dist
+**/.vite
+**/.cache
+
+dataRoomFront/dataRoom
+dataRoomFront/front
+dataRoomFront/coverage
+
+RELEASE/dataRoom
