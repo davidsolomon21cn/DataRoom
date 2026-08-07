@@ -12,7 +12,7 @@ import lombok.Data;
     @Schema(description = "WebSocket 地址")
     private String url;
 
-    @Schema(description = "消息处理 Groovy 脚本")
+    @Schema(description = "消息处理脚本")
     private String script;
 
     @Schema(description = "测试样本数据")

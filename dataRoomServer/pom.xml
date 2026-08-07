@@ -16,7 +16,11 @@
     </properties>
 
     <dependencies>
-
+        <dependency>
+            <groupId>com.gccloud.gcpaas</groupId>
+            <artifactId>dataRoom-script-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>

@@ -2,21 +2,21 @@ package com.gccloud.gcpaas.dataroom.core.dataset.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gccloud.gcpaas.dataroom.core.config.DataRoomConfig;
 import com.gccloud.gcpaas.dataroom.core.constant.DatasetType;
 import com.gccloud.gcpaas.dataroom.core.dataset.bean.BaseDataset;
 import com.gccloud.gcpaas.dataroom.core.dataset.bean.StreamingDataset;
 import com.gccloud.gcpaas.dataroom.core.dataset.runtime.StreamingDatasetMessageContext;
 import com.gccloud.gcpaas.dataroom.core.entity.DatasetEntity;
 import com.gccloud.gcpaas.dataroom.core.exception.DataRoomException;
-import groovy.lang.Binding;
-import groovy.lang.GroovyShell;
+import com.gccloud.gcpaas.dataroom.core.script.ScriptExecutionRequest;
+import com.gccloud.gcpaas.dataroom.core.script.ScriptExecutor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -29,7 +29,7 @@ import java.util.Map;
 public class StreamingDatasetMessageProcessor {
 
     private final ObjectMapper objectMapper;
-    private final DataRoomConfig dataRoomConfig;
+    private final ScriptExecutor scriptExecutor;
 
     public Object process(DatasetEntity datasetEntity, StreamingDataset streamingDataset, String message, Map<String, Object> params) {
         StreamingDatasetMessageContext context = new StreamingDatasetMessageContext();
@@ -65,24 +65,23 @@ public class StreamingDatasetMessageProcessor {
         if (StringUtils.isBlank(script)) {
             return context.getPayload();
         }
-        if (dataRoomConfig.getGroovy() == null || !Boolean.TRUE.equals(dataRoomConfig.getGroovy().getEnable())) {
-            throw new DataRoomException("为了安全,默认关闭Groovy执行权限");
-        }
-
-        Binding binding = new Binding();
-        binding.setVariable("context", context);
-        binding.setVariable("message", context.getMessage());
-        binding.setVariable("payload", context.getPayload());
-        binding.setVariable("metadata", context.getMetadata());
-        binding.setVariable("params", context.getParams());
-        binding.setVariable("dataset", datasetEntity);
+        Map<String, Object> bindings = new HashMap<>();
+        bindings.put("context", context);
+        bindings.put("message", context.getMessage());
+        bindings.put("payload", context.getPayload());
+        bindings.put("metadata", context.getMetadata());
+        bindings.put("params", context.getParams());
+        bindings.put("dataset", datasetEntity);
         BaseDataset datasetConfig = datasetEntity == null ? null : datasetEntity.getDataset();
-        binding.setVariable("datasetConfig", datasetConfig);
-        binding.setVariable("streamingDataset", streamingDataset);
+        bindings.put("datasetConfig", datasetConfig);
+        bindings.put("streamingDataset", streamingDataset);
 
         try {
-            Object result = new GroovyShell(binding).evaluate(script);
+            Object result = scriptExecutor.execute(new ScriptExecutionRequest(script, bindings));
             return normalizeScriptResult(result);
+        } catch (DataRoomException e) {
+            log.error(ExceptionUtils.getStackTrace(e));
+            throw e;
         } catch (Exception e) {
             log.error(ExceptionUtils.getStackTrace(e));
             throw new DataRoomException("流式数据集消息处理脚本执行失败");
