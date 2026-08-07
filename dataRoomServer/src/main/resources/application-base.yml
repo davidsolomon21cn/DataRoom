@@ -26,6 +26,7 @@ spring:
 
 dataroom:
   outboundHttp:
+    # 允许内网转发的目标地址和端口
     allowedInternalTargets:
       - 192.168.52.86:9200
       - 192.168.59.45:8083
