@@ -8,11 +8,11 @@ public class Jwt {
     /**
      * 颁发jwt者
      */
-    private String issuer = "dataRoom";
+    private String issuer;
     /**
      * 密钥
      */
-    private String secret = "8cgZ3e8BGbj+GDyZW2vs4A5/qmDfshHLEm6FrciK3eI=";
+    private String secret;
     /**
      * 签名算法
      */

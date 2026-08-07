@@ -57,6 +57,12 @@ dataroom:
     headerKey: Authorization
     # 对方系统token对应的值前缀，如：Bearer
     headerValuePrefix: Bearer
+  jwt:
+    issuer: dataRoom
+    secret: 8cgZ3e8BGbj+GDyZW2vs4A5/qmDfshHLEm6FrciK3eI=
+    expiration: 36000
+    tokenKey: dataRoomToken
+    alg: HS256
 
 # 接口文档配置
 knife4j:

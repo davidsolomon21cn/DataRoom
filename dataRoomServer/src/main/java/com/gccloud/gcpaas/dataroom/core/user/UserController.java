@@ -56,6 +56,7 @@ public class UserController {
     @Operation(summary = "登录用户", description = "获取当前登录用户信息")
     public Resp<LoginUser> current() {
         LoginUser currentUser = LoginUserUtils.getCurrentUser();
+        currentUser.setPassword(null);
         return Resp.success(currentUser);
     }
 

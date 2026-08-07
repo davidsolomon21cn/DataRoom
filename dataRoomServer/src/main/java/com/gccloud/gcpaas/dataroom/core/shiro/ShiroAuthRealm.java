@@ -10,10 +10,9 @@ import com.gccloud.gcpaas.dataroom.core.entity.UserEntity;
 import com.gccloud.gcpaas.dataroom.core.exception.DataRoomException;
 import com.gccloud.gcpaas.dataroom.core.page.service.PageShareService;
 import com.gccloud.gcpaas.dataroom.core.shiro.sso.ISsoAdapterService;
+import com.gccloud.gcpaas.dataroom.core.user.service.TokenService;
 import com.gccloud.gcpaas.dataroom.core.user.service.UserService;
 import com.gccloud.gcpaas.dataroom.core.util.TokenUtils;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.Jwts;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -57,6 +56,8 @@ public class ShiroAuthRealm extends AuthorizingRealm {
     private ISsoAdapterService ssoAdapterService;
     @Resource
     private PageShareService pageShareService;
+    @Resource
+    private TokenService tokenService;
 
     @Override
     public boolean supports(AuthenticationToken token) {
@@ -107,9 +108,8 @@ public class ShiroAuthRealm extends AuthorizingRealm {
         LoginUser loginUser = new LoginUser();
         try {
             if (localIssuer.equals(tokenIssuer)) {
-                Claims claims = Jwts.parser().setSigningKey(jwt.getSecret()).build().parseClaimsJws(accessToken).getBody();
                 // 解析token，然后获取用户相关信息
-                String account = claims.get("account", String.class);
+                String account = tokenService.getAccountFromToken(accessToken);
                 UserEntity user = userService.getByAccount(account);
                 if (user == null || user.getStatus() == null || user.getStatus() != UserStatus.NORMAL || UserService.isExpired(user)) {
                     throw new DataRoomException("用户不存在、已禁用、已锁定或已过期");

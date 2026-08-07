@@ -1,17 +1,14 @@
 package com.gccloud.gcpaas.dataroom.server;
 
 import com.gccloud.gcpaas.dataroom.core.bean.Rsa;
-import com.gccloud.gcpaas.dataroom.core.user.service.TokenService;
 import com.gccloud.gcpaas.dataroom.core.util.RsaUtils;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.autoconfigure.mongo.MongoAutoConfiguration;
 
 import javax.crypto.SecretKey;
 import java.util.Base64;
@@ -20,14 +17,6 @@ import java.util.Base64;
 @SpringBootApplication(scanBasePackages = "com.gccloud.gcpaas", exclude = MongoAutoConfiguration.class)
 @MapperScan("com.gccloud.gcpaas.dataroom.core.mapper")
 public class DataRoomApplication {
-    @Resource
-    private TokenService tokenService;
-
-    @PostConstruct
-    public void init() {
-        String token = tokenService.createToken("admin");
-        log.info("模拟生成token: {}", token);
-    }
 
     public static void main(String[] args) {
         // 生成一个安全的 256 位 HMAC 密钥
