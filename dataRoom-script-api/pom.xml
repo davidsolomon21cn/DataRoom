@@ -12,5 +12,5 @@
 
     <groupId>com.gccloud.gcpaas</groupId>
     <artifactId>dataRoom-script-api</artifactId>
-    <version>3.4.0</version>
+    <version>3.5.0</version>
 </project>
