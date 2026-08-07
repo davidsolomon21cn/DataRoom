@@ -1,6 +1,8 @@
 package com.gccloud.gcpaas.dataroom.core.config;
 
+import com.gccloud.gcpaas.dataroom.core.config.bean.Cors;
 import com.gccloud.gcpaas.dataroom.core.config.bean.Jwt;
+import com.gccloud.gcpaas.dataroom.core.config.bean.OutboundHttp;
 import com.gccloud.gcpaas.dataroom.core.config.bean.ResourceBean;
 import com.gccloud.gcpaas.dataroom.core.config.bean.Sso;
 import lombok.Data;
@@ -27,6 +29,14 @@ public class DataRoomConfig {
      * 素材资源存储访问配置
      */
     private ResourceBean resource = new ResourceBean();
+    /**
+     * 跨域配置
+     */
+    private Cors cors = new Cors();
+    /**
+     * 服务端出网 HTTP/WebSocket 安全配置
+     */
+    private OutboundHttp outboundHttp = new OutboundHttp();
     /**
      * 单点登录配置
      */

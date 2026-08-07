@@ -3,23 +3,98 @@ package com.gccloud.gcpaas.core.dataset.service;
 import com.gccloud.gcpaas.dataroom.core.bean.KeyVal;
 import com.gccloud.gcpaas.dataroom.core.bean.Rsa;
 import com.gccloud.gcpaas.dataroom.core.config.DataRoomConfig;
+import com.gccloud.gcpaas.dataroom.core.dataset.DatasetRunRequest;
+import com.gccloud.gcpaas.dataroom.core.dataset.bean.HttpDataset;
 import com.gccloud.gcpaas.dataroom.core.dataset.service.HttpDatasetService;
 import com.gccloud.gcpaas.dataroom.core.datasource.bean.HttpDatasource;
+import com.gccloud.gcpaas.dataroom.core.entity.DatasetEntity;
 import com.gccloud.gcpaas.dataroom.core.exception.DataRoomException;
+import com.gccloud.gcpaas.dataroom.core.exception.IllegalOutboundDestinationException;
+import com.gccloud.gcpaas.dataroom.core.security.OutboundUrlSecurityService;
 import com.gccloud.gcpaas.dataroom.core.util.RsaUtils;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.client.RestTemplate;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 
 class HttpDatasetServiceTest {
+
+    @Test
+    void runPropagatesIllegalDestinationWithoutSendingRequest() {
+        HttpDatasetService service = new HttpDatasetService() {
+            @Override
+            public Map<String, Object> getDefaultInputParam() {
+                return Map.of();
+            }
+        };
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        OutboundUrlSecurityService securityService = mock(OutboundUrlSecurityService.class);
+        ReflectionTestUtils.setField(service, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(service, "outboundUrlSecurityService", securityService);
+        String url = "http://127.0.0.1:8080/internal";
+        when(securityService.validateAndResolve(url, Set.of("http", "https")))
+                .thenThrow(new IllegalOutboundDestinationException("127.0.0.1:8080 地址属于回环地址，禁止访问"));
+        HttpDataset dataset = new HttpDataset();
+        dataset.setUrl(url);
+        dataset.setMethod("GET");
+        dataset.setBody("{}");
+        DatasetEntity entity = new DatasetEntity();
+        entity.setDataset(dataset);
+
+        DataRoomException exception = assertThrows(DataRoomException.class,
+                () -> service.run(new DatasetRunRequest(), entity));
+
+        assertEquals("127.0.0.1:8080 地址属于回环地址，禁止访问", exception.getMessage());
+        verifyNoInteractions(restTemplate);
+    }
+
+    @Test
+    void runValidatesFinalUrlBeforeSendingRequest() {
+        HttpDatasetService service = new HttpDatasetService() {
+            @Override
+            public Map<String, Object> getDefaultInputParam() {
+                return Map.of();
+            }
+        };
+        RestTemplate restTemplate = mock(RestTemplate.class);
+        OutboundUrlSecurityService securityService = mock(OutboundUrlSecurityService.class);
+        ReflectionTestUtils.setField(service, "restTemplate", restTemplate);
+        ReflectionTestUtils.setField(service, "outboundUrlSecurityService", securityService);
+        String finalUrl = "http://8.8.8.8/items/42";
+        when(securityService.validateAndResolve(finalUrl, Set.of("http", "https"))).thenReturn(finalUrl);
+        when(restTemplate.exchange(eq(finalUrl), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(ResponseEntity.ok("[]"));
+
+        HttpDataset dataset = new HttpDataset();
+        dataset.setUrl("http://8.8.8.8/items/#{id}");
+        dataset.setMethod("GET");
+        dataset.setBody("{}");
+        DatasetEntity entity = new DatasetEntity();
+        entity.setDataset(dataset);
+        DatasetRunRequest request = new DatasetRunRequest();
+        request.setInputParam(Map.of("id", 42));
+
+        service.run(request, entity);
+
+        verify(securityService).validateAndResolve(finalUrl, Set.of("http", "https"));
+    }
 
     @Test
     void resolveUrlRequiresAbsoluteUrlWhenNoDatasourceIsSelected() throws Exception {

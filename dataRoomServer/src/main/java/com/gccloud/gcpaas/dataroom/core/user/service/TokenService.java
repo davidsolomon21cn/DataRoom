@@ -72,4 +72,18 @@ public class TokenService {
         }
         return account;
     }
+
+    /**
+     * 删除指定token的缓存，使其立即失效。
+     *
+     * @param accessToken token
+     */
+    public void removeToken(String accessToken) {
+        Jwt jwtConfig = dataRoomConfig.getJwt();
+        Claims claims = Jwts.parser().setSigningKey(jwtConfig.getSecret()).build().parseClaimsJws(accessToken).getBody();
+        String tid = claims.get("tid", String.class);
+        if (StringUtils.isNotBlank(tid)) {
+            TOKEN_CACHE.invalidate(tid);
+        }
+    }
 }

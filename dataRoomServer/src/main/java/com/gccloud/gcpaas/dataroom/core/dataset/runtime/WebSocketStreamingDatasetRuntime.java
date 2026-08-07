@@ -5,6 +5,7 @@ import com.gccloud.gcpaas.dataroom.core.dataset.bean.WebSocketDataset;
 import com.gccloud.gcpaas.dataroom.core.dataset.service.StreamingDatasetMessageProcessor;
 import com.gccloud.gcpaas.dataroom.core.dataset.ws.RealtimeDatasetSessionRegistry;
 import com.gccloud.gcpaas.dataroom.core.entity.DatasetEntity;
+import com.gccloud.gcpaas.dataroom.core.security.OutboundUrlSecurityService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.springframework.web.socket.CloseStatus;
@@ -14,6 +15,7 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -22,6 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 public class WebSocketStreamingDatasetRuntime implements StreamingDatasetRuntime {
+
+    private static final String MAX_REDIRECTIONS_PROPERTY = "org.apache.tomcat.websocket.MAX_REDIRECTIONS";
 
     private final DatasetEntity datasetEntity;
 
@@ -33,7 +37,9 @@ public class WebSocketStreamingDatasetRuntime implements StreamingDatasetRuntime
 
     private final RealtimeDatasetSessionRegistry sessionRegistry;
 
-    private final StandardWebSocketClient webSocketClient = new StandardWebSocketClient();
+    private final OutboundUrlSecurityService outboundUrlSecurityService;
+
+    private final StandardWebSocketClient webSocketClient = createWebSocketClient();
 
     private final AtomicBoolean running = new AtomicBoolean(false);
 
@@ -45,13 +51,15 @@ public class WebSocketStreamingDatasetRuntime implements StreamingDatasetRuntime
             DatasetEntity datasetEntity,
             Map<String, Object> params,
             StreamingDatasetMessageProcessor messageProcessor,
-            RealtimeDatasetSessionRegistry sessionRegistry
+            RealtimeDatasetSessionRegistry sessionRegistry,
+            OutboundUrlSecurityService outboundUrlSecurityService
     ) {
         this.datasetEntity = datasetEntity;
         this.webSocketDataset = (WebSocketDataset) datasetEntity.getDataset();
         this.params = params;
         this.messageProcessor = messageProcessor;
         this.sessionRegistry = sessionRegistry;
+        this.outboundUrlSecurityService = outboundUrlSecurityService;
     }
 
     @Override
@@ -66,6 +74,10 @@ public class WebSocketStreamingDatasetRuntime implements StreamingDatasetRuntime
 
     @Override
     public void start() {
+        if (running.get()) {
+            return;
+        }
+        String url = outboundUrlSecurityService.validateAndResolve(webSocketDataset.getUrl(), Set.of("ws", "wss"));
         if (!running.compareAndSet(false, true)) {
             return;
         }
@@ -85,7 +97,7 @@ public class WebSocketStreamingDatasetRuntime implements StreamingDatasetRuntime
                 log.error(ExceptionUtils.getStackTrace(exception));
                 running.set(false);
             }
-        }, webSocketDataset.getUrl());
+        }, url);
         connectFuture.whenComplete((webSocketSession, throwable) -> {
             if (throwable != null) {
                 log.error(ExceptionUtils.getStackTrace(throwable));
@@ -138,5 +150,11 @@ public class WebSocketStreamingDatasetRuntime implements StreamingDatasetRuntime
         } catch (Exception e) {
             log.error(ExceptionUtils.getStackTrace(e));
         }
+    }
+
+    private static StandardWebSocketClient createWebSocketClient() {
+        StandardWebSocketClient client = new StandardWebSocketClient();
+        client.setUserProperties(Map.of(MAX_REDIRECTIONS_PROPERTY, 0));
+        return client;
     }
 }

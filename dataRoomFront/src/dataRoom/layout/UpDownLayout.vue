@@ -6,6 +6,7 @@ import request from '@/dataRoom/utils/request.ts'
 import { removeCookie } from '@/dataRoom/utils/cookie'
 import { onMounted, ref } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
+import { userApi } from '@/dataRoom/user/api'
 
 const router = useRouter()
 const route = useRoute()
@@ -27,16 +28,15 @@ const isMenuActive = (path: string) => {
 }
 
 // 下拉菜单命令处理
-const handleCommand = (command: string) => {
+const handleCommand = async (command: string) => {
   if (command === 'logout') {
-    // 删除cookie中的token
+    await userApi.logout()
     removeCookie()
-    // 跳转到登录页
-    router.push('/login')
+    await router.push('/login')
   } else if (command === 'profile') {
-    router.push('/dataRoom/console/profile')
+    await router.push('/dataRoom/console/profile')
   } else if (command === 'console') {
-    router.push('/dataRoom/console/user')
+    await router.push('/dataRoom/console/user')
   }
 }
 

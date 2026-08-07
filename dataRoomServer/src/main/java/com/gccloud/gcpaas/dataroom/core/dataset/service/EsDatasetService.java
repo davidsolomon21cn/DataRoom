@@ -14,6 +14,8 @@ import com.gccloud.gcpaas.dataroom.core.datasource.service.DatasourceService;
 import com.gccloud.gcpaas.dataroom.core.entity.DataSourceEntity;
 import com.gccloud.gcpaas.dataroom.core.entity.DatasetEntity;
 import com.gccloud.gcpaas.dataroom.core.exception.DataRoomException;
+import com.gccloud.gcpaas.dataroom.core.exception.IllegalOutboundDestinationException;
+import com.gccloud.gcpaas.dataroom.core.security.OutboundUrlSecurityService;
 import com.gccloud.gcpaas.dataroom.core.util.ParamUtils;
 import com.gccloud.gcpaas.dataroom.core.util.RsaUtils;
 import com.gccloud.gcpaas.dataroom.core.util.TypeUtils;
@@ -37,17 +39,20 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Service(value = DatasetType.ES_TYPE + DataRoomConstant.Dataset.SERVICE_NAME)
 public class EsDatasetService extends AbstractDatasetService {
 
-    @Resource
+    @Resource(name = "outboundRestTemplate")
     private RestTemplate restTemplate;
     @Resource
     private DatasourceService datasourceService;
     @Resource
     private DataRoomConfig dataRoomConfig;
+    @Resource
+    private OutboundUrlSecurityService outboundUrlSecurityService;
 
     @Override
     public DatasetRunResponse run(DatasetRunRequest datasetRunRequest, DatasetEntity datasetEntity) {
@@ -59,6 +64,7 @@ public class EsDatasetService extends AbstractDatasetService {
             String requestPath = replaceParams(esDataset.getPath(), params);
             String body = replaceParams(esDataset.getBody(), params);
             String url = buildRequestUrl(esDatasource.getBaseUrl(), requestPath);
+            url = outboundUrlSecurityService.validateAndResolve(url, Set.of("http", "https"));
             HttpHeaders headers = buildHeaders(esDatasource);
 
             ResponseEntity<String> response = sendRequest(url, esDataset.getMethod(), body, headers);
@@ -73,6 +79,9 @@ public class EsDatasetService extends AbstractDatasetService {
                 data = JSONPath.eval(data, esDataset.getRespJsonPath());
             }
             datasetRunResponse.setData(data);
+        } catch (IllegalOutboundDestinationException e) {
+            log.error(ExceptionUtils.getStackTrace(e));
+            throw e;
         } catch (Exception e) {
             log.error(ExceptionUtils.getStackTrace(e));
             datasetRunResponse.setData(new ArrayList<>());

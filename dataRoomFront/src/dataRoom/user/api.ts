@@ -67,6 +67,13 @@ export interface Role {
  */
 export const userApi = {
   /**
+   * 退出登录
+   */
+  logout() {
+    return request.post<void>('/dataRoom/user/logout')
+  },
+
+  /**
    * 分页查询用户
    */
   page(params?: UserQueryDTO) {

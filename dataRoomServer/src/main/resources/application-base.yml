@@ -25,6 +25,21 @@ spring:
           mcp-endpoint: /mcp/sse
 
 dataroom:
+  outboundHttp:
+    allowedInternalTargets:
+      - 192.168.52.86:9200
+      - 192.168.59.45:8083
+  cors:
+    path-pattern: "/**"
+    allowed-origin-patterns:
+      - "*"
+    allow-credentials: true
+    allowed-methods:
+      - "*"
+    allowed-headers:
+      - "*"
+    exposed-headers:
+      - "*"
   resource:
     # 资源上传存储路径，可以使用绝对路径
     basePath: ./dataRoomResource

@@ -17,11 +17,13 @@ import com.gccloud.gcpaas.dataroom.core.user.service.TokenService;
 import com.gccloud.gcpaas.dataroom.core.user.service.UserService;
 import com.gccloud.gcpaas.dataroom.core.util.LoginUserUtils;
 import com.gccloud.gcpaas.dataroom.core.util.RsaUtils;
+import com.gccloud.gcpaas.dataroom.core.util.TokenUtils;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.xiaoymin.knife4j.annotations.ApiSort;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
+import jakarta.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.stereotype.Controller;
@@ -110,6 +112,13 @@ public class UserController {
             return Resp.success(token);
         }
         throw new DataRoomException("用户名或密码错误");
+    }
+
+    @PostMapping("/logout")
+    @Operation(summary = "退出登录", description = "删除当前登录token")
+    public Resp<Void> logout(HttpServletRequest request) {
+        tokenService.removeToken(TokenUtils.getToken(request));
+        return Resp.success(null);
     }
 
     @GetMapping("/page")

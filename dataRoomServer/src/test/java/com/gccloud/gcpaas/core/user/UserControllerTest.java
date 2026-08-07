@@ -14,6 +14,7 @@ import com.gccloud.gcpaas.dataroom.core.user.service.TokenService;
 import com.gccloud.gcpaas.dataroom.core.user.service.UserService;
 import com.gccloud.gcpaas.dataroom.core.util.RsaUtils;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Date;
@@ -155,6 +156,24 @@ class UserControllerTest {
 
         assertEquals(200, response.getCode());
         verify(userService, times(1)).unlock("user-1");
+    }
+
+    @Test
+    void logoutRemovesCurrentRequestToken() {
+        TokenService tokenService = mock(TokenService.class);
+        UserController controller = newController(
+                mock(UserService.class),
+                tokenService,
+                newDataRoomConfig(),
+                captchaCache("captcha-key", "abcd")
+        );
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader("dataRoomToken", "current-token");
+
+        Resp<Void> response = controller.logout(request);
+
+        assertEquals(200, response.getCode());
+        verify(tokenService, times(1)).removeToken("current-token");
     }
 
     @Test

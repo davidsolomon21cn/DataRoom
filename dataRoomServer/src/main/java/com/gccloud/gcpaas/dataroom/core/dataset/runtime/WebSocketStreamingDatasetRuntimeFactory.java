@@ -4,6 +4,7 @@ import com.gccloud.gcpaas.dataroom.core.constant.DatasetType;
 import com.gccloud.gcpaas.dataroom.core.dataset.service.StreamingDatasetMessageProcessor;
 import com.gccloud.gcpaas.dataroom.core.dataset.ws.RealtimeDatasetSessionRegistry;
 import com.gccloud.gcpaas.dataroom.core.entity.DatasetEntity;
+import com.gccloud.gcpaas.dataroom.core.security.OutboundUrlSecurityService;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,9 @@ public class WebSocketStreamingDatasetRuntimeFactory implements StreamingDataset
     @Resource
     private RealtimeDatasetSessionRegistry sessionRegistry;
 
+    @Resource
+    private OutboundUrlSecurityService outboundUrlSecurityService;
+
     @Override
     public boolean supports(DatasetType datasetType) {
         return DatasetType.WEBSOCKET.equals(datasetType);
@@ -28,6 +32,12 @@ public class WebSocketStreamingDatasetRuntimeFactory implements StreamingDataset
 
     @Override
     public StreamingDatasetRuntime create(DatasetEntity datasetEntity, Map<String, Object> params) {
-        return new WebSocketStreamingDatasetRuntime(datasetEntity, params, messageProcessor, sessionRegistry);
+        return new WebSocketStreamingDatasetRuntime(
+                datasetEntity,
+                params,
+                messageProcessor,
+                sessionRegistry,
+                outboundUrlSecurityService
+        );
     }
 }
