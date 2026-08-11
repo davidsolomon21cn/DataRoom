@@ -59,7 +59,7 @@ const filterPluginList = computed(() => {
 <template>
   <el-dialog v-model="componentLibVisible" title="组件库" width="80%" :close-on-click-modal="false" @closed="emit('close')">
     <div class="dr-component-lib-wrapper">
-      <div class="search">
+      <div class="component-toolbar">
         <el-input v-model="searchName" :suffix-icon="Search" placeholder="搜索" clearable></el-input>
       </div>
       <el-scrollbar class="component-card-scrollbar">
@@ -77,9 +77,11 @@ const filterPluginList = computed(() => {
               </el-icon>
             </div>
             <div class="image">
-              <el-image :src="plugin.thumbnail" lazy fit="contain" />
+              <el-image class="thumbnail-image" :src="plugin.thumbnail" lazy fit="contain" />
             </div>
-            <div class="desc">{{ plugin.name }}</div>
+            <div class="card-footer">
+              <span class="card-name" :title="plugin.name">{{ plugin.name }}</span>
+            </div>
           </div>
         </div>
       </el-scrollbar>
@@ -104,18 +106,11 @@ const filterPluginList = computed(() => {
   overflow: hidden;
   overflow-x: hidden;
   background: var(--el-bg-color);
-  font-family:
-    Inter,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
 
-  & .search {
+  & .component-toolbar {
     flex-shrink: 0;
-    width: 50%;
-    margin: 0 auto 16px;
+    width: 300px;
+    margin-bottom: 16px;
   }
 
   & .component-card-scrollbar {
@@ -125,7 +120,7 @@ const filterPluginList = computed(() => {
 
   & .component-card {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 16px;
     padding: 2px 4px 20px 2px;
 
@@ -135,11 +130,12 @@ const filterPluginList = computed(() => {
       border: 1px solid var(--el-border-color-light);
       border-radius: 8px;
       overflow: hidden;
-      transition: border-color 0.2s ease, background-color 0.2s ease;
+      cursor: pointer;
+      transition: border-color 0.2s ease, background-color 0.2s ease, transform 0.2s ease;
 
       &:hover {
-        cursor: pointer;
-        border-color: var(--el-border-color);
+        border-color: var(--el-border-color-darker);
+        transform: scale(1.02);
       }
 
       &.card--selected {
@@ -169,31 +165,40 @@ const filterPluginList = computed(() => {
 
       & .image {
         width: 100%;
-        height: 96px;
+        height: 112px;
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 16px 16px 12px;
+        padding: 12px;
         background: var(--el-fill-color-extra-light);
         box-sizing: border-box;
 
-        & .el-image {
+        & .thumbnail-image {
           width: 100%;
           height: 100%;
+          display: block;
         }
       }
 
-      & .desc {
-        padding: 12px 12px 14px;
-        line-height: 1.5;
-        font-size: 12px;
-        font-weight: 500;
+      & .card-footer {
+        display: flex;
+        align-items: center;
+        min-height: 42px;
+        padding: 10px 12px;
+        border-top: 1px solid var(--el-border-color-lighter);
+        box-sizing: border-box;
+      }
+
+      & .card-name {
+        min-width: 0;
+        font-size: 14px;
+        font-weight: 400;
+        line-height: 1.57;
+        letter-spacing: 0;
         color: var(--el-text-color-primary);
-        text-align: center;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        border-top: 1px solid var(--el-border-color-lighter);
       }
     }
   }
