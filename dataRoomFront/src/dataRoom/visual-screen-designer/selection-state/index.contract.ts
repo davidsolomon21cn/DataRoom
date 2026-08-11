@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import type { ChartConfig } from '@/dataRoom/components/type/ChartConfig.ts'
+import * as selectionState from './index.ts'
 import {
   getVisualScreenControlPanelSelectionState,
   getRenderableSelectedChartIds,
@@ -16,6 +17,10 @@ import {
   getVisualScreenScopedChartIdsByElements,
   normalizeVisualScreenSelectedChartIds,
 } from './index.ts'
+
+type IframeInteractionSelectionState = typeof selectionState & {
+  shouldBlockVisualScreenIframeInteraction?: (mode: 'designer' | 'preview', chartType: string, iframeInteractionEnabled: boolean) => boolean
+}
 
 const chart = (id: string, overrides: Partial<ChartConfig<unknown>> = {}): ChartConfig<unknown> => ({
   id,
@@ -121,6 +126,20 @@ test('stops Selecto drag start from selected chart targets so Moveable owns dire
   assert.equal(shouldStopVisualScreenSelectoDragStart('a', ['a', 'b', 'c'], { metaKey: true }), true)
   assert.equal(shouldStopVisualScreenSelectoDragStart('d', ['a', 'b', 'c']), false)
   assert.equal(shouldStopVisualScreenSelectoDragStart(null, ['a', 'b', 'c']), false)
+})
+
+test('blocks iframe content only while designer iframe interaction is disabled', () => {
+  const shouldBlock = (selectionState as IframeInteractionSelectionState).shouldBlockVisualScreenIframeInteraction
+
+  assert.equal(typeof shouldBlock, 'function')
+  if (!shouldBlock) {
+    return
+  }
+
+  assert.equal(shouldBlock('designer', 'DrIframe', false), true)
+  assert.equal(shouldBlock('designer', 'DrIframe', true), false)
+  assert.equal(shouldBlock('designer', 'DrText', false), false)
+  assert.equal(shouldBlock('preview', 'DrIframe', false), false)
 })
 
 test('treats Moveable control layers as Moveable-owned interaction targets', () => {

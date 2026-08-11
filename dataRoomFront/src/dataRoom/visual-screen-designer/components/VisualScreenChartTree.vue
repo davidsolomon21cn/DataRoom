@@ -6,6 +6,7 @@ import type { ChartConfig } from '@/dataRoom/components/type/ChartConfig.ts'
 import { filterVisibleCharts, getVisibleChartChildren } from '@/dataRoom/designer/utils/chart-visibility.ts'
 import { isGroupChart } from '@/dataRoom/visual-screen-designer/grouping'
 import { getVisualScreenChartWrapperStyle } from '@/dataRoom/visual-screen-designer/chart-style'
+import { shouldBlockVisualScreenIframeInteraction } from '@/dataRoom/visual-screen-designer/selection-state'
 
 defineOptions({ name: 'VisualScreenChartTree' })
 
@@ -15,8 +16,9 @@ const props = withDefaults(
     parentId?: string
     scopeParentId?: string
     mode?: 'designer' | 'preview'
+    iframeInteractionEnabled?: boolean
   }>(),
-  { mode: 'designer' },
+  { mode: 'designer', iframeInteractionEnabled: false },
 )
 
 const emit = defineEmits<{
@@ -30,6 +32,10 @@ const visibleCharts = computed(() => filterVisibleCharts(props.charts))
 const isDirectScopeChild = (parentId: string | undefined) => parentId === props.scopeParentId
 
 const isEditingScopeChart = (chart: ChartConfig<unknown>) => props.mode === 'designer' && chart.id === props.scopeParentId
+
+const shouldBlockIframeInteraction = (chart: ChartConfig<unknown>) => {
+  return shouldBlockVisualScreenIframeInteraction(props.mode, chart.type, props.iframeInteractionEnabled)
+}
 
 const canEmitDesignerEvent = (parentId: string | undefined) => {
   if (props.mode !== 'designer') {
@@ -95,13 +101,17 @@ const forwardChartContextmenu = (event: MouseEvent, chart: ChartConfig<unknown>,
       @dblclick="onChartDoubleClick($event, chart)"
       @contextmenu="onChartContextmenu($event, chart)"
     >
-      <component v-if="!isGroupChart(chart)" :is="getComponent(chart.type)" :chart="chart" />
+      <template v-if="!isGroupChart(chart)">
+        <component :is="getComponent(chart.type)" :chart="chart" />
+        <div v-if="shouldBlockIframeInteraction(chart)" class="iframe-interaction-shield" aria-hidden="true" />
+      </template>
       <VisualScreenChartTree
         v-else
         :charts="getVisibleChartChildren(chart)"
         :parent-id="chart.id"
         :scope-parent-id="scopeParentId"
         :mode="mode"
+        :iframe-interaction-enabled="iframeInteractionEnabled"
         @chart-click="forwardChartClick"
         @chart-double-click="forwardChartDoubleClick"
         @chart-contextmenu="forwardChartContextmenu"
@@ -120,13 +130,16 @@ const forwardChartContextmenu = (event: MouseEvent, chart: ChartConfig<unknown>,
       :data-dr-scope-child="isDirectScopeChild(parentId)"
       :style="getVisualScreenChartWrapperStyle(chart)"
     >
-      <component v-if="!isGroupChart(chart)" :is="getComponent(chart.type)" :chart="chart" />
+      <template v-if="!isGroupChart(chart)">
+        <component :is="getComponent(chart.type)" :chart="chart" />
+      </template>
       <VisualScreenChartTree
         v-else
         :charts="getVisibleChartChildren(chart)"
         :parent-id="chart.id"
         :scope-parent-id="scopeParentId"
         :mode="mode"
+        :iframe-interaction-enabled="iframeInteractionEnabled"
         @chart-click="forwardChartClick"
         @chart-double-click="forwardChartDoubleClick"
         @chart-contextmenu="forwardChartContextmenu"
@@ -134,3 +147,12 @@ const forwardChartContextmenu = (event: MouseEvent, chart: ChartConfig<unknown>,
     </div>
   </template>
 </template>
+
+<style scoped>
+.iframe-interaction-shield {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: move;
+}
+</style>

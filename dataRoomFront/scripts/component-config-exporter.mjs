@@ -3,11 +3,11 @@ import { existsSync, readFileSync } from 'node:fs'
 import { mkdir, readFile, readdir, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const registerPath = 'src/dataRoom/_components/PluginRegister.ts'
+const registerPath = 'src/dataRoom/designer/registry/PluginRegister.ts'
 const componentsPath = 'src/dataRoom/components'
 const chartConfigPath = 'src/dataRoom/components/type/ChartConfig.ts'
-const pageConfigPath = 'src/dataRoom/PageDesigner/type/PageConfig.ts'
-const visualScreenPageConfigPath = 'src/dataRoom/PageDesigner/type/VisualScreenPageConfig.ts'
+const pageConfigPath = 'src/dataRoom/page-designer/type/PageConfig.ts'
+const visualScreenPageConfigPath = 'src/dataRoom/page-designer/type/VisualScreenPageConfig.ts'
 
 const baseChartConfigDefaults = {
   title: '未命名组件',
@@ -22,6 +22,7 @@ const baseChartConfigDefaults = {
   behaviors: {},
   dataset: {
     code: '',
+    datasetType: '',
     fields: {},
     script: '',
     params: {},
@@ -84,6 +85,7 @@ const pageConfigSchemaDefinitions = [
           verticalGuides: [],
           horizontalGuides: [],
         },
+        iframeInteractionEnabled: false,
         timers: [],
       },
       globalVariableList: [],
@@ -99,7 +101,7 @@ export function parseLiteralOptions(typeText) {
     .filter(Boolean)
   const options = []
   for (const part of parts) {
-    const stringMatch = part.match(/^['"]([^'"]+)['"]$/)
+    const stringMatch = part.match(/^['"]([^'"]*)['"]$/)
     if (stringMatch) {
       options.push(stringMatch[1])
       continue
@@ -344,13 +346,14 @@ async function parseChartConfigInterface(projectRoot) {
   const sourcePath = path.join(projectRoot, chartConfigPath)
   const source = await readText(sourcePath)
   const sourceFile = ts.createSourceFile(sourcePath, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const typeAliases = await parseImportedTypeAliases(projectRoot, sourcePath, source)
   const interfaceNode = findInterface(sourceFile, 'ChartConfig')
   if (!interfaceNode) {
     throw new Error('ChartConfig.ts 中未找到 ChartConfig interface')
   }
   return {
     name: interfaceNode.name.text,
-    properties: parseInterfaceMembers(interfaceNode.members, sourceFile, new Map()),
+    properties: parseInterfaceMembers(interfaceNode.members, sourceFile, typeAliases),
   }
 }
 

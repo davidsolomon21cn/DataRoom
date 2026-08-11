@@ -59,14 +59,16 @@ try {
 
   const projectDir = path.join(rootDir, 'project')
   const componentsDir = path.join(projectDir, 'src/dataRoom/components')
-  const registerDir = path.join(projectDir, 'src/dataRoom/_components')
+  const registerDir = path.join(projectDir, 'src/dataRoom/designer/registry')
   const typeDir = path.join(projectDir, 'src/dataRoom/components/type')
-  const pageTypeDir = path.join(projectDir, 'src/dataRoom/PageDesigner/type')
-  const visualScreenDir = path.join(projectDir, 'src/dataRoom/VisualScreenDesigner')
+  const datasetDir = path.join(projectDir, 'src/dataRoom/dataset')
+  const pageTypeDir = path.join(projectDir, 'src/dataRoom/page-designer/type')
+  const visualScreenDir = path.join(projectDir, 'src/dataRoom/visual-screen-designer')
   const outputDir = path.join(rootDir, 'output')
   await mkdir(path.join(componentsDir, 'DrText'), { recursive: true })
   await mkdir(registerDir, { recursive: true })
   await mkdir(typeDir, { recursive: true })
+  await mkdir(datasetDir, { recursive: true })
   await mkdir(pageTypeDir, { recursive: true })
   await mkdir(visualScreenDir, { recursive: true })
   await mkdir(outputDir, { recursive: true })
@@ -82,6 +84,7 @@ export { pluginList }
 `, 'utf8')
 
   await writeFile(path.join(typeDir, 'ChartConfig.ts'), `
+import type { DatasetType } from '@/dataRoom/dataset/api.ts'
 export interface ChartConfig<T> {
   // 唯一标识
   id: string
@@ -122,6 +125,8 @@ export interface ChartConfig<T> {
   dataset: {
     // 数据集编码
     code: string
+    // 数据集类型，历史配置可为空
+    datasetType?: DatasetType
     // 字段绑定
     fields: {
       [key: string]: string[]
@@ -134,6 +139,10 @@ export interface ChartConfig<T> {
     }
   }
 }
+`, 'utf8')
+
+  await writeFile(path.join(datasetDir, 'api.ts'), `
+export type DatasetType = '' | 'directory' | 'json' | 'http' | 'sql' | 'excel' | 'es' | 'websocket' | 'mqtt'
 `, 'utf8')
 
   await writeFile(path.join(pageTypeDir, 'PageConfig.ts'), `
@@ -191,7 +200,7 @@ export interface VisualScreenPageConfig {
 
   await writeFile(path.join(pageTypeDir, 'VisualScreenPageBasicConfig.ts'), `
 import type { PageTimer } from './PageTimer.ts'
-import type { VisualScreenRulerConfig } from '../../VisualScreenDesigner/ruler'
+import type { VisualScreenRulerConfig } from '../../visual-screen-designer/ruler'
 export interface VisualScreenPageBasicConfig {
   // 页面背景设置
   background: {
@@ -223,6 +232,8 @@ export interface VisualScreenPageBasicConfig {
   }
   // 设计器编辑态标尺与参考线配置
   ruler?: VisualScreenRulerConfig
+  // 设计器编辑态是否允许 iframe 内部交互
+  iframeInteractionEnabled?: boolean
   // 定时器配置列表
   timers?: PageTimer[]
 }
@@ -306,10 +317,18 @@ export type ValueFormat =
   | 'thousand'
 `, 'utf8')
 
-  const result = await exportComponentConfigs({
-    projectRoot: projectDir,
-    outputDir
-  })
+  let result
+  let exportError
+  try {
+    result = await exportComponentConfigs({
+      projectRoot: projectDir,
+      outputDir
+    })
+  } catch (error) {
+    exportError = error
+  }
+
+  assert.equal(exportError, undefined)
 
   assert.equal(result.components.length, 1)
   assert.equal(result.components[0].componentName, 'DrText')
@@ -325,6 +344,9 @@ export type ValueFormat =
   assert.equal(fieldByPath.get('behaviors').type, 'object')
   assert.deepEqual(fieldByPath.get('behaviors').defaultValue, {})
   assert.equal(fieldByPath.get('dataset.code').defaultValue, '')
+  assert.equal(fieldByPath.get('dataset.datasetType').type, 'enum')
+  assert.deepEqual(fieldByPath.get('dataset.datasetType').options, ['', 'directory', 'json', 'http', 'sql', 'excel', 'es', 'websocket', 'mqtt'])
+  assert.equal(fieldByPath.get('dataset.datasetType').defaultValue, '')
   assert.equal(fieldByPath.get('dataset.fields').type, 'object')
   assert.deepEqual(fieldByPath.get('dataset.fields').defaultValue, {})
   assert.equal(fieldByPath.get('dataset.params').type, 'object')
@@ -355,6 +377,7 @@ export type ValueFormat =
   assert.equal(visualFieldByPath.get('basicConfig.zoom.mode').defaultValue, 'best')
   assert.equal(visualFieldByPath.get('basicConfig.ruler.visible').defaultValue, true)
   assert.deepEqual(visualFieldByPath.get('basicConfig.ruler.verticalGuides').defaultValue, [])
+  assert.equal(visualFieldByPath.get('basicConfig.iframeInteractionEnabled').defaultValue, false)
 
   const outputFiles = await readdir(outputDir)
   assert.equal(outputFiles.includes('RemovedComponent.config.json'), false)

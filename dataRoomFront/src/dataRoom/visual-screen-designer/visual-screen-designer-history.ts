@@ -10,6 +10,8 @@ interface CreateVisualScreenPageConfigPayloadOptions {
   globalVariableList: GlobalVariable[]
 }
 
+export const normalizeVisualScreenIframeInteractionEnabled = (value: unknown) => value === true
+
 export const createVisualScreenPageConfigPayload = ({
   pageStageEntity,
   chartList,
@@ -25,7 +27,10 @@ export const createVisualScreenPageConfigPayload = ({
     pageConfig: {
       ...pageStageEntity.pageConfig,
       chartList,
-      basicConfig,
+      basicConfig: {
+        ...basicConfig,
+        iframeInteractionEnabled: normalizeVisualScreenIframeInteractionEnabled(basicConfig.iframeInteractionEnabled),
+      },
       globalVariableList,
     },
   }

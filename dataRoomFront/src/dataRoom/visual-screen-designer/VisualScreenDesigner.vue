@@ -91,7 +91,7 @@ import {
   getPageThumbnailFailureMessage,
   type PageThumbnailSaveFailure,
 } from '@/dataRoom/designer/utils/page-thumbnail-save.ts'
-import { createVisualScreenPageConfigPayload } from './visual-screen-designer-history.ts'
+import { createVisualScreenPageConfigPayload, normalizeVisualScreenIframeInteractionEnabled } from './visual-screen-designer-history.ts'
 import {
   getVisualScreenAlignmentItems,
   getVisualScreenAlignmentLabel,
@@ -143,6 +143,7 @@ const defaultBasicConfig: VisualScreenPageBasicConfig = {
   size: { width: 1920, height: 1080, zoom: 'contain' },
   zoom: { mode: 'best', value: ZOOM_DEFAULT_PERCENT, visiable: true },
   ruler: normalizeVisualScreenRulerConfig(undefined, 1920, 1080),
+  iframeInteractionEnabled: false,
   timers: [],
 }
 const basicConfig = ref<VisualScreenPageBasicConfig>({ ...defaultBasicConfig })
@@ -232,6 +233,12 @@ const designerZoomVisible = computed({
       ...basicConfig.value.zoom,
       visiable,
     })
+  },
+})
+const iframeInteractionEnabled = computed({
+  get: () => normalizeVisualScreenIframeInteractionEnabled(basicConfig.value.iframeInteractionEnabled),
+  set: (enabled: boolean) => {
+    basicConfig.value.iframeInteractionEnabled = enabled
   },
 })
 /**
@@ -1938,6 +1945,7 @@ onMounted(() => {
         size: { ...defaultBasicConfig.size, ...loaded.size },
         zoom: normalizeDesignerZoomPreference(loaded.zoom),
         ruler: normalizeVisualScreenRulerConfig(loaded.ruler, loaded.size?.width || defaultBasicConfig.size.width, loaded.size?.height || defaultBasicConfig.size.height),
+        iframeInteractionEnabled: normalizeVisualScreenIframeInteractionEnabled(loaded.iframeInteractionEnabled),
         timers: loaded.timers || [],
       }
     }
@@ -2018,6 +2026,12 @@ onBeforeUnmount(() => {
                   <div class="tool-menu-row" @click.stop>
                     <span>缩放</span>
                     <el-switch v-model="designerZoomVisible" size="small" />
+                  </div>
+                </el-dropdown-item>
+                <el-dropdown-item>
+                  <div class="tool-menu-row" @click.stop>
+                    <span>Iframe交互</span>
+                    <el-switch v-model="iframeInteractionEnabled" size="small" />
                   </div>
                 </el-dropdown-item>
                 <el-dropdown-item v-if="canUseAlignmentMenu">
@@ -2146,6 +2160,7 @@ onBeforeUnmount(() => {
                 <VisualScreenChartTree
                   :charts="chartList"
                   :scope-parent-id="editingScopeParentId"
+                  :iframe-interaction-enabled="iframeInteractionEnabled"
                   mode="designer"
                   @chart-click="onChartTreeClick"
                   @chart-double-click="onChartTreeDoubleClick"

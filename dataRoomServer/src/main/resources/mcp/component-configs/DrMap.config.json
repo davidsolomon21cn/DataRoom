@@ -96,6 +96,23 @@
       "defaultValue": ""
     },
     {
+      "field": "dataset.datasetType",
+      "type": "enum",
+      "description": "数据集类型，历史配置可为空",
+      "options": [
+        "",
+        "directory",
+        "json",
+        "http",
+        "sql",
+        "excel",
+        "es",
+        "websocket",
+        "mqtt"
+      ],
+      "defaultValue": ""
+    },
+    {
       "field": "dataset.fields",
       "type": "object",
       "description": "字段绑定",

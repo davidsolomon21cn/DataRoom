@@ -76,7 +76,7 @@ const getInstance = (): DrIframeConfig => {
     'DrIframe',
     {
       basic: {
-        url: 'https://www.example.com',
+        url: 'http://gcpaas.gccloud.com',
         scrolling: 'auto',
         frameBorder: false
       },

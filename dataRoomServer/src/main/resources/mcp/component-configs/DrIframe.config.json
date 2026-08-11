@@ -96,6 +96,23 @@
       "defaultValue": ""
     },
     {
+      "field": "dataset.datasetType",
+      "type": "enum",
+      "description": "数据集类型，历史配置可为空",
+      "options": [
+        "",
+        "directory",
+        "json",
+        "http",
+        "sql",
+        "excel",
+        "es",
+        "websocket",
+        "mqtt"
+      ],
+      "defaultValue": ""
+    },
+    {
       "field": "dataset.fields",
       "type": "object",
       "description": "字段绑定",
@@ -117,7 +134,7 @@
       "field": "props.basic.url",
       "type": "string",
       "description": "嵌入页面的URL地址",
-      "defaultValue": "https://www.example.com"
+      "defaultValue": "http://gcpaas.gccloud.com"
     },
     {
       "field": "props.basic.scrolling",

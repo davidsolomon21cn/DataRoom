@@ -110,12 +110,6 @@
       "defaultValue": true
     },
     {
-      "field": "basicConfig.ruler.guidesLocked",
-      "type": "boolean",
-      "description": "guidesLocked",
-      "defaultValue": false
-    },
-    {
       "field": "basicConfig.ruler.verticalGuides",
       "type": "array",
       "description": "verticalGuides",
@@ -126,6 +120,12 @@
       "type": "array",
       "description": "horizontalGuides",
       "defaultValue": []
+    },
+    {
+      "field": "basicConfig.iframeInteractionEnabled",
+      "type": "boolean",
+      "description": "设计器编辑态是否允许 iframe 内部交互",
+      "defaultValue": false
     },
     {
       "field": "basicConfig.timers",

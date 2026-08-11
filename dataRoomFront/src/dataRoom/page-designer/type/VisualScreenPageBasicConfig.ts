@@ -35,6 +35,8 @@ export interface VisualScreenPageBasicConfig {
   }
   // 设计器编辑态标尺与参考线配置
   ruler?: VisualScreenRulerConfig
+  // 设计器编辑态是否允许 iframe 内部交互
+  iframeInteractionEnabled?: boolean
   // 定时器配置列表
   timers?: PageTimer[]
 }

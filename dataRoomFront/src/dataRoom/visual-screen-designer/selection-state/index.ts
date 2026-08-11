@@ -26,6 +26,10 @@ export const getVisualScreenRenderableSelectedTargets = <T extends Element>(sele
   return selectedChartIds.map((chartId) => targetById.get(chartId)).filter((target): target is T => Boolean(target))
 }
 
+export const shouldBlockVisualScreenIframeInteraction = (mode: 'designer' | 'preview', chartType: string, iframeInteractionEnabled: boolean) => {
+  return mode === 'designer' && chartType === 'DrIframe' && !iframeInteractionEnabled
+}
+
 export interface VisualScreenChartTreeClickEventLike {
   ctrlKey: boolean
   metaKey: boolean
