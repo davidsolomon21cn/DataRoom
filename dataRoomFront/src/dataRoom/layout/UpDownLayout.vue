@@ -7,6 +7,7 @@ import { removeCookie } from '@/dataRoom/utils/cookie'
 import { onMounted, ref } from 'vue'
 import { ArrowDown } from '@element-plus/icons-vue'
 import { userApi } from '@/dataRoom/user/api'
+import { getCasConfig, resolveLogoutTarget } from '@/dataRoom/cas'
 
 const router = useRouter()
 const route = useRoute()
@@ -30,9 +31,19 @@ const isMenuActive = (path: string) => {
 // 下拉菜单命令处理
 const handleCommand = async (command: string) => {
   if (command === 'logout') {
-    await userApi.logout()
-    removeCookie()
-    await router.push('/login')
+    const logoutTarget = resolveLogoutTarget(getCasConfig())
+    try {
+      await userApi.logout()
+    } catch (error) {
+      console.error('退出登录失败:', error)
+    } finally {
+      removeCookie()
+      if (logoutTarget === '/login') {
+        await router.push(logoutTarget)
+      } else {
+        window.location.href = logoutTarget
+      }
+    }
   } else if (command === 'profile') {
     await router.push('/dataRoom/console/profile')
   } else if (command === 'console') {

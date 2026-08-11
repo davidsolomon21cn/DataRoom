@@ -4,6 +4,7 @@ import com.gccloud.gcpaas.dataroom.core.constant.DataRoomRole;
 import com.gccloud.gcpaas.dataroom.core.constant.PageStatus;
 import com.gccloud.gcpaas.dataroom.core.constant.PageType;
 import com.gccloud.gcpaas.dataroom.core.constant.UserStatus;
+import com.gccloud.gcpaas.dataroom.core.config.DataRoomConfig;
 import com.gccloud.gcpaas.dataroom.core.entity.PageEntity;
 import com.gccloud.gcpaas.dataroom.core.entity.PageShareEntity;
 import com.gccloud.gcpaas.dataroom.core.exception.DataRoomException;
@@ -20,10 +21,12 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
-import java.util.HashMap;
 import java.util.Base64;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Map;
 
 @Service
@@ -43,12 +46,14 @@ public class PageShareService {
     private PageMapper pageMapper;
     @Resource
     private ClientAccessService clientAccessService;
+    @Resource
+    private DataRoomConfig dataRoomConfig;
 
     public static boolean isShareToken(String token) {
         return StringUtils.startsWith(token, SHARE_TOKEN_PREFIX);
     }
 
-    public PageShareVo detail(String pageCode, HttpServletRequest request) {
+    public PageShareVo detail(String pageCode) {
         PageEntity page = requireShareablePage(pageCode);
         PageShareEntity share = pageShareMapper.getByPageCode(pageCode);
         if (share == null) {
@@ -59,11 +64,11 @@ public class PageShareService {
             vo.setCreated(false);
             return vo;
         }
-        return toVo(share, request);
+        return toVo(share);
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public PageShareVo save(PageShareSaveDto dto, HttpServletRequest request) {
+    public PageShareVo save(PageShareSaveDto dto) {
         if (dto == null || StringUtils.isBlank(dto.getPageCode())) {
             throw new DataRoomException("页面编码不能为空");
         }
@@ -86,7 +91,7 @@ public class PageShareService {
             applySaveDto(share, dto);
             pageShareMapper.updateById(share);
         }
-        return toVo(share, request);
+        return toVo(share);
     }
 
     public LoginUser authenticateShareToken(String token, HttpServletRequest request) {
@@ -139,25 +144,20 @@ public class PageShareService {
         pageShareMapper.deleteByPageCode(pageCode);
     }
 
-    public String buildShareUrl(PageShareEntity share, HttpServletRequest request) {
+    public String buildShareUrl(PageShareEntity share) {
         if (share == null || StringUtils.isBlank(share.getToken())) {
             return null;
         }
-        StringBuilder url = new StringBuilder();
-        if (request != null) {
-            url.append(request.getScheme()).append("://").append(request.getServerName());
-            int port = request.getServerPort();
-            if (port > 0 && port != 80 && port != 443) {
-                url.append(":").append(port);
-            }
-            url.append(StringUtils.defaultString(request.getContextPath()));
-        }
+        StringBuilder url = new StringBuilder(StringUtils.appendIfMissing(
+                StringUtils.defaultString(dataRoomConfig.getUiUrl()), "/"));
         String route = PageType.VISUAL_SCREEN == share.getPageType()
-                ? "/#/dataRoom/visualScreenPreview/published/"
-                : "/#/dataRoom/pagePreviewer/published/";
+                ? "dataRoom/visualScreenPreview/published/"
+                : "dataRoom/pagePreviewer/published/";
         return url.append(route)
                 .append(share.getPageCode())
-                .append("?dataRoomToken=")
+                .append("?")
+                .append(URLEncoder.encode(dataRoomConfig.getJwt().getTokenKey(), StandardCharsets.UTF_8))
+                .append("=")
                 .append(share.getToken())
                 .toString();
     }
@@ -185,11 +185,11 @@ public class PageShareService {
         share.setIpWhitelist(dto.getIpWhitelist());
     }
 
-    private PageShareVo toVo(PageShareEntity share, HttpServletRequest request) {
+    private PageShareVo toVo(PageShareEntity share) {
         PageShareVo vo = new PageShareVo();
         BeanUtils.copyProperties(share, vo);
         vo.setCreated(true);
-        vo.setShareUrl(buildShareUrl(share, request));
+        vo.setShareUrl(buildShareUrl(share));
         return vo;
     }
 

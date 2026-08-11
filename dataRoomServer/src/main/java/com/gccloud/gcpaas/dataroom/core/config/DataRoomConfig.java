@@ -1,6 +1,7 @@
 package com.gccloud.gcpaas.dataroom.core.config;
 
 import com.gccloud.gcpaas.dataroom.core.config.bean.Cors;
+import com.gccloud.gcpaas.dataroom.core.config.bean.Cas;
 import com.gccloud.gcpaas.dataroom.core.config.bean.Jwt;
 import com.gccloud.gcpaas.dataroom.core.config.bean.OutboundHttp;
 import com.gccloud.gcpaas.dataroom.core.config.bean.ResourceBean;
@@ -13,6 +14,10 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "dataroom")
 public class DataRoomConfig {
+    /**
+     * 前端访问根地址。
+     */
+    private String uiUrl;
     /**
      * 公钥
      */
@@ -41,4 +46,8 @@ public class DataRoomConfig {
      * 单点登录配置
      */
     private Sso sso = new Sso();
+    /**
+     * CAS 单点登录配置
+     */
+    private Cas cas = new Cas();
 }

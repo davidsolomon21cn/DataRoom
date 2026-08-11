@@ -6,18 +6,18 @@ export interface AiGenerationAction {
 
 export const skillInstallCommand = 'npx skills add https://gitee.com/gcpaas/DataRoom.git --skill dataroom-page'
 
-export const createMcpConfig = (mcpServerUrl: string, token: string) => ({
+export const createMcpConfig = (mcpServerUrl: string, token: string, tokenKey: string) => ({
   mcpServers: {
     'dataroom-mcp-server': {
       url: mcpServerUrl,
       headers: {
-        dataRoomToken: token,
+        [tokenKey]: token,
       },
     },
   },
 })
 
-export const formatMcpConfig = (mcpServerUrl: string, token: string) => JSON.stringify(createMcpConfig(mcpServerUrl, token), null, 2)
+export const formatMcpConfig = (mcpServerUrl: string, token: string, tokenKey: string) => JSON.stringify(createMcpConfig(mcpServerUrl, token, tokenKey), null, 2)
 
 export const aiGenerationActions: AiGenerationAction[] = [
   {

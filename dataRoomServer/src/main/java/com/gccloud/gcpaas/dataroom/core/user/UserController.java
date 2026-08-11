@@ -117,7 +117,7 @@ public class UserController {
     @PostMapping("/logout")
     @Operation(summary = "退出登录", description = "删除当前登录token")
     public Resp<Void> logout(HttpServletRequest request) {
-        tokenService.removeToken(TokenUtils.getToken(request));
+        tokenService.removeToken(TokenUtils.getToken(request, dataRoomConfig.getJwt().getTokenKey()));
         return Resp.success(null);
     }
 

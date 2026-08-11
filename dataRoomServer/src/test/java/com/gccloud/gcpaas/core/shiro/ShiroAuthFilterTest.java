@@ -13,7 +13,7 @@ class ShiroAuthFilterTest {
 
     @Test
     void authFailureUsesDataRoomExceptionMessageWhenPresent() {
-        ShiroAuthFilter filter = new ShiroAuthFilter();
+        ShiroAuthFilter filter = new ShiroAuthFilter("customToken");
         AuthenticationException exception = new AuthenticationException(
                 new AuthenticationException(new DataRoomException("分享链接已停用", 401))
         );
@@ -26,7 +26,7 @@ class ShiroAuthFilterTest {
 
     @Test
     void authFailureFallsBackToDefaultMessage() {
-        ShiroAuthFilter filter = new ShiroAuthFilter();
+        ShiroAuthFilter filter = new ShiroAuthFilter("customToken");
 
         Resp<String> resp = ReflectionTestUtils.invokeMethod(filter, "getAuthError", new AuthenticationException("failed"));
 

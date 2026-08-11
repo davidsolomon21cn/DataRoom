@@ -24,8 +24,10 @@ public class TokenUtils {
      * @param request
      * @return
      */
-    public static String getToken(HttpServletRequest request) {
-        String tokenKey = "dataRoomToken";
+    public static String getToken(HttpServletRequest request, String tokenKey) {
+        if (StringUtils.isBlank(tokenKey)) {
+            return null;
+        }
         String token = request.getParameter(tokenKey);
         if (StringUtils.isNotBlank(token)) {
             return token;

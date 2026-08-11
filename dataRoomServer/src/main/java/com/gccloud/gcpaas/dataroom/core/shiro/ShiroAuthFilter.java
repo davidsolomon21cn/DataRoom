@@ -28,10 +28,15 @@ import java.io.IOException;
 public class ShiroAuthFilter extends AuthenticatingFilter {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final String tokenKey;
+
+    public ShiroAuthFilter(String tokenKey) {
+        this.tokenKey = tokenKey;
+    }
 
     @Override
     protected AuthenticationToken createToken(ServletRequest request, ServletResponse response) throws Exception {
-        String token = TokenUtils.getToken((HttpServletRequest) request);
+        String token = TokenUtils.getToken((HttpServletRequest) request, tokenKey);
         if (StringUtils.isBlank(token)) {
             return new ShiroAuthToken("");
         }
@@ -50,7 +55,7 @@ public class ShiroAuthFilter extends AuthenticatingFilter {
     protected boolean onAccessDenied(ServletRequest request, ServletResponse response) throws Exception {
         HttpServletRequest req = (HttpServletRequest) request;
         // 获取请求token，如果token不存在，直接返回401
-        String token = TokenUtils.getToken((HttpServletRequest) request);
+        String token = TokenUtils.getToken((HttpServletRequest) request, tokenKey);
         if (StringUtils.isBlank(token)) {
             HttpServletResponse httpResponse = (HttpServletResponse) response;
             httpResponse.setHeader("Access-Control-Allow-Credentials", "true");

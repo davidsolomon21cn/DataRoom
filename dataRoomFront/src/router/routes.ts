@@ -12,6 +12,11 @@ export const appRoutes: RouteRecordRaw[] = [
     component: () => import('@/dataRoom/login/Login.vue'),
   },
   {
+    path: '/error',
+    name: 'error',
+    component: () => import('@/dataRoom/error.vue'),
+  },
+  {
     path: '/dataRoom',
     name: 'dataRoom',
     component: () => import('@/dataRoom/layout/UpDownLayout.vue'),

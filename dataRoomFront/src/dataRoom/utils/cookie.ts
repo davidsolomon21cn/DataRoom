@@ -3,8 +3,8 @@
  * 用于读取和写入指定名称的 Cookie 值
  */
 
-// 从环境变量读取 Cookie 名称，默认为 'dataRoomToken'
-const DATA_ROOM_TOKEN_NAME = 'dataRoomToken'
+// 从环境变量读取 Cookie 名称
+const DATA_ROOM_TOKEN_NAME = import.meta.env.VITE_TOKEN_KEY.trim()
 
 /**
  * 获取指定名称的 Cookie 值

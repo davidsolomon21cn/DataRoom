@@ -1,18 +1,31 @@
-import {createRouter, createWebHashHistory} from 'vue-router'
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import config from '../../package.json'
-import { setCookie } from '@/dataRoom/utils/cookie'
+import { getCookieName, setCookie } from '@/dataRoom/utils/cookie'
 import { appRoutes } from './routes'
+import { consumeDataRoomToken } from '@/dataRoom/cas'
+import { resolveRouterMode } from './router-mode'
+
+const routerMode = resolveRouterMode(import.meta.env.VITE_ROUTER_MODE)
+const routerHistory =
+  routerMode === 'hash'
+    ? createWebHashHistory(import.meta.env.BASE_URL)
+    : createWebHistory(import.meta.env.BASE_URL)
 
 const router = createRouter({
-  history: createWebHashHistory(import.meta.env.BASE_URL),
+  history: routerHistory,
   routes: appRoutes,
 })
 
 router.beforeEach((to) => {
-  const dataRoomToken = to.query.dataRoomToken
-  const token = Array.isArray(dataRoomToken) ? dataRoomToken[0] : dataRoomToken
-  if (typeof token === 'string' && token.trim()) {
-    setCookie(token.trim())
+  const { token, query } = consumeDataRoomToken(to.query, getCookieName())
+  if (token) {
+    setCookie(token)
+    return {
+      path: to.path,
+      query,
+      hash: to.hash,
+      replace: true,
+    }
   }
 })
 

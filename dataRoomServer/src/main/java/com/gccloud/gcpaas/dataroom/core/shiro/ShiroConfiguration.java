@@ -1,5 +1,6 @@
 package com.gccloud.gcpaas.dataroom.core.shiro;
 
+import com.gccloud.gcpaas.dataroom.core.config.DataRoomConfig;
 import jakarta.servlet.Filter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.shiro.mgt.SecurityManager;
@@ -54,17 +55,20 @@ public class ShiroConfiguration {
     }
 
     @Bean
-    public ShiroFilterFactoryBean shiroFilter(SecurityManager securityManager, ShiroFilterConfiguration shiroFilterConfiguration) {
+    public ShiroFilterFactoryBean shiroFilter(SecurityManager securityManager,
+                                              ShiroFilterConfiguration shiroFilterConfiguration,
+                                              DataRoomConfig dataRoomConfig) {
         DataRoomShiroFilterFactoryBean shiroFilter = new DataRoomShiroFilterFactoryBean();
         shiroFilter.setSecurityManager(securityManager);
         shiroFilter.setShiroFilterConfiguration(shiroFilterConfiguration);
         Map<String, Filter> filters = new HashMap<>(16);
         shiroFilter.setFilters(filters);
-        filters.put(OAUTH, new ShiroAuthFilter());
+        filters.put(OAUTH, new ShiroAuthFilter(dataRoomConfig.getJwt().getTokenKey()));
         Map<String, String> filterMap = new LinkedHashMap<>();
         filterMap.put("/dataRoom/captcha/**", ANON);
         filterMap.put("/dataRoom/user/login", ANON);
         filterMap.put("/dataRoom/user/login/**", ANON);
+        filterMap.put("/cas/login", ANON);
 
         // Knife4j doc.html 需要
         filterMap.put("/webjars/**", ANON);

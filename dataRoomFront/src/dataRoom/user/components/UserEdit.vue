@@ -206,7 +206,7 @@ defineExpose({
       </el-form-item>
       <el-form-item label="角色">
         <el-checkbox-group :model-value="getSelectedRoles()" class="role-checkbox-group" @update:model-value="handleRoleChange">
-          <el-checkbox v-for="role in roles" :key="role.code" :value="role.code" :disabled="role.code === 'sharer'">
+          <el-checkbox v-for="role in roles" :key="role.code" :value="role.code">
             {{ role.name }}
           </el-checkbox>
         </el-checkbox-group>

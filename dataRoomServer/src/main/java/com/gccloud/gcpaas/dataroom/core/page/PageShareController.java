@@ -7,7 +7,6 @@ import com.gccloud.gcpaas.dataroom.core.page.service.PageShareService;
 import com.gccloud.gcpaas.dataroom.core.page.vo.PageShareVo;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
-import jakarta.servlet.http.HttpServletRequest;
 import org.apache.shiro.authz.annotation.RequiresRoles;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -28,13 +27,13 @@ public class PageShareController {
 
     @GetMapping("/detail/{pageCode}")
     @RequiresRoles(value = DataRoomRole.DEVELOPER)
-    public Resp<PageShareVo> detail(@PathVariable("pageCode") String pageCode, HttpServletRequest request) {
-        return Resp.success(pageShareService.detail(pageCode, request));
+    public Resp<PageShareVo> detail(@PathVariable("pageCode") String pageCode) {
+        return Resp.success(pageShareService.detail(pageCode));
     }
 
     @PostMapping("/save")
     @RequiresRoles(value = DataRoomRole.DEVELOPER)
-    public Resp<PageShareVo> save(@RequestBody PageShareSaveDto dto, HttpServletRequest request) {
-        return Resp.success(pageShareService.save(dto, request));
+    public Resp<PageShareVo> save(@RequestBody PageShareSaveDto dto) {
+        return Resp.success(pageShareService.save(dto));
     }
 }

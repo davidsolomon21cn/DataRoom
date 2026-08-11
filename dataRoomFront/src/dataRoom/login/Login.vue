@@ -8,12 +8,15 @@ import request from '@/dataRoom/utils/request.ts'
 import { encryptByRsa } from '@/dataRoom/utils/encrypt'
 import logo from '@/dataRoom/assets/logo.png'
 import axios from 'axios'
+import { getCasConfig } from '@/dataRoom/cas'
 
 defineOptions({
   name: 'DataRoomLogin',
 })
 
 const router = useRouter()
+const casConfig = getCasConfig()
+const casLoginEnabled = casConfig.enabled && Boolean(casConfig.loginUrl)
 
 // 表单数据
 const loginForm = reactive({
@@ -143,6 +146,14 @@ const handleKeyPress = (event: KeyboardEvent) => {
     handleLogin()
   }
 }
+
+const handleCasLogin = () => {
+  if (!casLoginEnabled) {
+    ElMessage.error('CAS 单点登录配置不完整')
+    return
+  }
+  window.location.href = casConfig.loginUrl
+}
 </script>
 
 <template>
@@ -183,6 +194,10 @@ const handleKeyPress = (event: KeyboardEvent) => {
             <el-button type="primary" size="large" :loading="loading" class="login-button" @click="handleLogin">
               {{ loading ? '登录中...' : '登录' }}
             </el-button>
+          </el-form-item>
+
+          <el-form-item v-if="casLoginEnabled" class="login-form-item">
+            <el-button size="large" class="login-button" @click="handleCasLogin">CAS 登录</el-button>
           </el-form-item>
         </el-form>
       </div>

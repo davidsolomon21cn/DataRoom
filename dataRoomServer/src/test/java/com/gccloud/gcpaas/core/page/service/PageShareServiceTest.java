@@ -1,6 +1,7 @@
 package com.gccloud.gcpaas.core.page.service;
 
 import com.gccloud.gcpaas.dataroom.core.constant.DataRoomRole;
+import com.gccloud.gcpaas.dataroom.core.config.DataRoomConfig;
 import com.gccloud.gcpaas.dataroom.core.constant.PageStatus;
 import com.gccloud.gcpaas.dataroom.core.constant.PageType;
 import com.gccloud.gcpaas.dataroom.core.entity.PageEntity;
@@ -38,6 +39,7 @@ class PageShareServiceTest {
     private PageShareMapper pageShareMapper;
     private PageMapper pageMapper;
     private PageShareService service;
+    private DataRoomConfig config;
 
     @BeforeEach
     void setUp() {
@@ -47,6 +49,10 @@ class PageShareServiceTest {
         ReflectionTestUtils.setField(service, "pageShareMapper", pageShareMapper);
         ReflectionTestUtils.setField(service, "pageMapper", pageMapper);
         ReflectionTestUtils.setField(service, "clientAccessService", new ClientAccessService());
+        config = new DataRoomConfig();
+        config.setUiUrl("https://app.example.com/#/");
+        config.getJwt().setTokenKey("customToken");
+        ReflectionTestUtils.setField(service, "dataRoomConfig", config);
     }
 
     @Test
@@ -59,12 +65,23 @@ class PageShareServiceTest {
             return 1;
         });
 
-        PageShareVo vo = service.save(dto("page_1", true, false), request());
+        PageShareVo vo = service.save(dto("page_1", true, false));
 
         assertNotNull(inserted.get());
         assertTrue(inserted.get().getToken().startsWith(PageShareService.SHARE_TOKEN_PREFIX));
         assertEquals(inserted.get().getToken(), vo.getToken());
-        assertTrue(vo.getShareUrl().contains("dataRoomToken=" + inserted.get().getToken()));
+        assertEquals("https://app.example.com/#/dataRoom/pagePreviewer/published/page_1?customToken="
+                + inserted.get().getToken(), vo.getShareUrl());
+    }
+
+    @Test
+    void buildShareUrlUsesConfiguredHistoryUiUrl() {
+        config.setUiUrl("https://app.example.com/");
+
+        String shareUrl = service.buildShareUrl(share("page_1", "share_token", true, null, ""));
+
+        assertEquals("https://app.example.com/dataRoom/pagePreviewer/published/page_1?customToken=share_token",
+                shareUrl);
     }
 
     @Test
@@ -80,7 +97,7 @@ class PageShareServiceTest {
 
         PageShareSaveDto dto = dto("page_1", false, false);
         dto.setIpWhitelist("192.168.1.0/24");
-        PageShareVo vo = service.save(dto, request());
+        PageShareVo vo = service.save(dto);
 
         assertEquals("share_existing", updated.get().getToken());
         assertEquals("share_existing", vo.getToken());
@@ -99,7 +116,7 @@ class PageShareServiceTest {
             return 1;
         });
 
-        PageShareVo vo = service.save(dto("page_1", true, true), request());
+        PageShareVo vo = service.save(dto("page_1", true, true));
 
         assertTrue(updated.get().getToken().startsWith(PageShareService.SHARE_TOKEN_PREFIX));
         assertNotEquals("share_existing", updated.get().getToken());
@@ -111,7 +128,7 @@ class PageShareServiceTest {
         PageShareSaveDto dto = dto("page_1", true, false);
         dto.setExpireTime(new Date(System.currentTimeMillis() - 1000L));
 
-        DataRoomException error = assertThrows(DataRoomException.class, () -> service.save(dto, request()));
+        DataRoomException error = assertThrows(DataRoomException.class, () -> service.save(dto));
 
         assertEquals("过期时间不能早于当前时间", error.getMessage());
     }

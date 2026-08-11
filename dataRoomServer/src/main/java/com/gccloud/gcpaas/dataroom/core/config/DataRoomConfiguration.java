@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.inner.PaginationInnerIntercept
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.gccloud.gcpaas.dataroom.core.config.bean.Cors;
+import com.gccloud.gcpaas.dataroom.core.config.bean.Cas;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -44,6 +45,25 @@ public class DataRoomConfiguration {
             }
         };
         return new RestTemplate(requestFactory);
+    }
+
+    @Bean("casRestTemplate")
+    public RestTemplate casRestTemplate(DataRoomConfig dataRoomConfig) {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory() {
+            @Override
+            protected void prepareConnection(HttpURLConnection connection, String httpMethod) throws IOException {
+                super.prepareConnection(connection, httpMethod);
+                connection.setInstanceFollowRedirects(false);
+            }
+        };
+        requestFactory.setConnectTimeout(dataRoomConfig.getCas().getConnectTimeout());
+        requestFactory.setReadTimeout(dataRoomConfig.getCas().getReadTimeout());
+        return new RestTemplate(requestFactory);
+    }
+
+    @Bean
+    public Cas cas(DataRoomConfig dataRoomConfig) {
+        return dataRoomConfig.getCas();
     }
 
     /**

@@ -159,16 +159,18 @@ class UserControllerTest {
     }
 
     @Test
-    void logoutRemovesCurrentRequestToken() {
+    void logoutRemovesCurrentRequestTokenUsingConfiguredTokenKey() {
         TokenService tokenService = mock(TokenService.class);
+        DataRoomConfig dataRoomConfig = newDataRoomConfig();
+        dataRoomConfig.getJwt().setTokenKey("customToken");
         UserController controller = newController(
                 mock(UserService.class),
                 tokenService,
-                newDataRoomConfig(),
+                dataRoomConfig,
                 captchaCache("captcha-key", "abcd")
         );
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader("dataRoomToken", "current-token");
+        request.addHeader("customToken", "current-token");
 
         Resp<Void> response = controller.logout(request);
 
@@ -209,6 +211,7 @@ class UserControllerTest {
         Rsa rsa = RsaUtils.generateRsaKeyPair();
         dataRoomConfig.setPublicKey(rsa.getPublicKey());
         dataRoomConfig.setPrivateKey(rsa.getPrivateKey());
+        dataRoomConfig.getJwt().setTokenKey("dataRoomToken");
         return dataRoomConfig;
     }
 

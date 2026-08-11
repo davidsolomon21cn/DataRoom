@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { CopyDocument } from '@element-plus/icons-vue'
-import { getCookie } from '@/dataRoom/utils/cookie'
+import { getCookie, getCookieName } from '@/dataRoom/utils/cookie'
 import { aiGenerationActions, formatMcpConfig } from './ai-generation-content'
 
 const mcpServerUrl = computed(() => {
@@ -10,7 +10,7 @@ const mcpServerUrl = computed(() => {
   return `${apiBaseUrl.replace(/\/$/, '')}/mcp/sse`
 })
 
-const formattedMcpConfig = computed(() => formatMcpConfig(mcpServerUrl.value, getCookie() || '登录后的Token'))
+const formattedMcpConfig = computed(() => formatMcpConfig(mcpServerUrl.value, getCookie() || '登录后的Token', getCookieName()))
 
 const actions = computed(() =>
   aiGenerationActions.map((action) => ({
