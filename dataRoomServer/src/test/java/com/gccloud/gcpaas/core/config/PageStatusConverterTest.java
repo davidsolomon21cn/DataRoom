@@ -34,4 +34,10 @@ class PageStatusConverterTest {
     void convertRejectsUnknownValue() {
         assertThrows(IllegalArgumentException.class, () -> converter.convert("unknown"));
     }
+
+    @Test
+    void enumFactorySupportsBusinessValueAndEnumName() {
+        assertEquals(PageStatus.DESIGN, PageStatus.fromValue("design"));
+        assertEquals(PageStatus.DESIGN, PageStatus.fromValue(" DESIGN "));
+    }
 }

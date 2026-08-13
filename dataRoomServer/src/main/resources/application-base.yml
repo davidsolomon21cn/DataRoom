@@ -22,7 +22,7 @@ spring:
         protocol: streamable
         streamable-http:
           # MCP 访问地址  http://ip:port/context-path/mcp/sse
-          mcp-endpoint: /mcp/sse
+          mcp-endpoint: /mcp
 
 dataroom:
   # 前端地址：Hash 模式需包含 /#/，History 模式填普通根地址

@@ -1,7 +1,9 @@
 package com.gccloud.gcpaas.dataroom.core.constant;
 
 import com.baomidou.mybatisplus.annotation.IEnum;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * 页面类型
@@ -21,6 +23,20 @@ public enum PageType implements IEnum<String> {
     PageType(String type, String desc) {
         this.type = type;
         this.desc = desc;
+    }
+
+    @JsonCreator
+    public static PageType fromValue(String value) {
+        if (StringUtils.isBlank(value)) {
+            return null;
+        }
+        String normalized = value.trim();
+        for (PageType pageType : values()) {
+            if (pageType.type.equalsIgnoreCase(normalized) || pageType.name().equalsIgnoreCase(normalized)) {
+                return pageType;
+            }
+        }
+        throw new IllegalArgumentException("不支持的页面类型: " + value);
     }
 
     @JsonValue

@@ -397,7 +397,7 @@ public class PageController {
     @Operation(summary = "获取页面配置", description = "获取页面配置,仅支持获取设计态、预览态、发布态")
     @OperationLogMeta(actionType = "查询", actionDesc = "获取页面配置", businessType = "page_preview", businessName = "页面预览", targetIdKey = "pageCode", detailLevel = OperationLogDetailLevel.SUMMARY)
     public Resp<PageStageVo> getPageConfig(@PathVariable("pageCode") String pageCode, @PathVariable("pageStatus") String pageStatusStr) {
-        PageStatus pageStatus = PageStatus.valueOf(pageStatusStr.toUpperCase());
+        PageStatus pageStatus = PageStatus.fromValue(pageStatusStr);
         pageShareService.assertShareAccessToPage(LoginUserUtils.getCurrentUser(), pageCode, pageStatus);
         LambdaQueryWrapper<PageStageEntity> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(PageStageEntity::getPageCode, pageCode);
@@ -503,7 +503,7 @@ public class PageController {
     @Parameters({@Parameter(name = "code", description = "页面编码", in = ParameterIn.PATH)})
     @OperationLogMeta(actionType = "修改", actionDesc = "清空页面历史记录", businessType = "page_stage", businessName = "页面历史", targetIdKey = "code")
     public Resp<Void> stageClear(@PathVariable("code") String code, @PathVariable("state") String state) {
-        PageStatus pageStatus = PageStatus.valueOf(state.toUpperCase());
+        PageStatus pageStatus = PageStatus.fromValue(state);
         if (!(pageStatus == PageStatus.HISTORY || pageStatus == PageStatus.SNAPSHOT)) {
             throw new DataRoomException("状态错误");
         }
