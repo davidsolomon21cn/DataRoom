@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import { consumeDataRoomToken, readCasConfig, resolveCasError, resolveLogoutTarget } from './cas.ts'
-import { createMcpConfig } from './ai-generation/ai-generation-content.ts'
+import { createMcpConfig, resolveMcpServerUrl } from './ai-generation/ai-generation-content.ts'
 
 test('readCasConfig only enables exact true and trims configured urls', () => {
   assert.deepEqual(
@@ -65,4 +65,11 @@ test('createMcpConfig uses the configured token key', () => {
       },
     },
   })
+})
+
+test('resolveMcpServerUrl uses the configured backend base url and streamable endpoint', () => {
+  assert.equal(resolveMcpServerUrl('http://localhost:8081/dataRoom', 'https://app.example.com'), 'http://localhost:8081/dataRoom/mcp')
+  assert.equal(resolveMcpServerUrl('https://api.example.com/dataRoom/', 'https://app.example.com'), 'https://api.example.com/dataRoom/mcp')
+  assert.equal(resolveMcpServerUrl('/dataRoom/', 'https://app.example.com'), 'https://app.example.com/dataRoom/mcp')
+  assert.equal(resolveMcpServerUrl('', 'https://app.example.com'), 'https://app.example.com/mcp')
 })

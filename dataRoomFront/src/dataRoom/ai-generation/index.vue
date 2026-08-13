@@ -3,11 +3,11 @@ import { computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { CopyDocument } from '@element-plus/icons-vue'
 import { getCookie, getCookieName } from '@/dataRoom/utils/cookie'
-import { aiGenerationActions, formatMcpConfig } from './ai-generation-content'
+import { aiGenerationActions, formatMcpConfig, resolveMcpServerUrl } from './ai-generation-content'
 
 const mcpServerUrl = computed(() => {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || ''
-  return `${apiBaseUrl.replace(/\/$/, '')}/mcp/sse`
+  return resolveMcpServerUrl(apiBaseUrl, window.location.origin)
 })
 
 const formattedMcpConfig = computed(() => formatMcpConfig(mcpServerUrl.value, getCookie() || '登录后的Token', getCookieName()))
