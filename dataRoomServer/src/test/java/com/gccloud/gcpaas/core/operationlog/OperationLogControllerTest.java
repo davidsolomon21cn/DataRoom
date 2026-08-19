@@ -33,7 +33,7 @@ class OperationLogControllerTest {
         entity.setRequestUri("/dataRoom/user/login");
         entity.setOperatorName("admin");
         entity.setResultStatus("SUCCESS");
-        entity.setBusinessName("认证登录");
+        entity.setBusinessModule("认证登录");
 
         PageVo<OperationLogEntity> pageVo = new PageVo<>();
         pageVo.setCurrent(2);

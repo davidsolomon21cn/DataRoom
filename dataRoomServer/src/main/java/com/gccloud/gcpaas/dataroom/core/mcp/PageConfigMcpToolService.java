@@ -3,6 +3,8 @@ package com.gccloud.gcpaas.dataroom.core.mcp;
 import com.gccloud.gcpaas.dataroom.core.bean.Resp;
 import com.gccloud.gcpaas.dataroom.core.mcp.bean.ComponentConfig;
 import com.gccloud.gcpaas.dataroom.core.mcp.service.ComponentConfigResourceService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Component;
  * 向 Spring AI 暴露页面和大屏基础配置查询能力，供客户端获取页面初始化所需的
  * 扁平化配置字段说明。
  */
+@Tag(name = "页面配置MCP")
 @Component
 public class PageConfigMcpToolService {
 
@@ -34,6 +37,7 @@ public class PageConfigMcpToolService {
      *
      * @return 统一响应包装的页面配置字段说明
      */
+    @Operation(summary = "页面配置查询", description = "获取PageDesigner网格化页面设计器的页面基础配置；返回页面扁平化配置字段列表，初始化页面时需要将fields直接转为JSON树的结构")
     @Tool(name = "getPageConfig", description = "获取PageDesigner网格化页面设计器的页面基础配置；" +
             "返回页面扁平化配置字段列表，初始化页面时需要将fields直接转为JSON树的结构")
     public Resp<ComponentConfig> getPageConfig() {
@@ -45,6 +49,7 @@ public class PageConfigMcpToolService {
      *
      * @return 统一响应包装的大屏页面配置字段说明
      */
+    @Operation(summary = "大屏页面配置查询", description = "获取VisualScreenDesigner像素级自由布局大屏设计器的页面基础配置；返回大屏页面扁平化配置字段列表，初始化大屏时需要将fields直接转为JSON树的结构")
     @Tool(name = "getVisualScreenPageConfig", description = "获取VisualScreenDesigner像素级自由布局大屏设计器的页面基础配置；" +
             "返回大屏页面扁平化配置字段列表，初始化大屏时需要将fields直接转为JSON树的结构")
     public Resp<ComponentConfig> getVisualScreenPageConfig() {

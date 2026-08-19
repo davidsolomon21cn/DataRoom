@@ -9,11 +9,12 @@ import com.gccloud.gcpaas.dataroom.core.constant.PageType;
 import com.gccloud.gcpaas.dataroom.core.entity.PageStageEntity;
 import com.gccloud.gcpaas.dataroom.core.exception.DataRoomException;
 import com.gccloud.gcpaas.dataroom.core.mapper.PageStageMapper;
-import com.gccloud.gcpaas.dataroom.core.operationlog.annotation.OperationLogMeta;
 import com.gccloud.gcpaas.dataroom.core.page.PageController;
 import com.gccloud.gcpaas.dataroom.core.page.bean.PageConfig;
 import com.gccloud.gcpaas.dataroom.core.page.dto.PageHistoryBackupDto;
 import com.gccloud.gcpaas.dataroom.core.page.service.PageStageService;
+import io.swagger.v3.oas.annotations.Operation;
+import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -25,6 +26,7 @@ import java.util.Date;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -60,14 +62,9 @@ class PageStageServiceHistoryTest {
     void historyDeleteEndpointIsOperationLogged() throws Exception {
         Method deleteMethod = PageController.class.getMethod("historyDelete", String.class);
 
-        OperationLogMeta meta = deleteMethod.getAnnotation(OperationLogMeta.class);
-
-        assertNotNull(meta);
-        assertEquals("删除", meta.actionType());
-        assertEquals("删除页面历史记录", meta.actionDesc());
-        assertEquals("page_stage", meta.businessType());
-        assertEquals("页面历史", meta.businessName());
-        assertEquals("id", meta.targetIdKey());
+        Operation operation = deleteMethod.getAnnotation(Operation.class);
+        assertNotNull(operation, "historyDelete 应标注 @Operation 以被操作日志记录");
+        assertTrue(StringUtils.isNotBlank(operation.summary()), "@Operation 应提供操作说明");
     }
 
     @Test

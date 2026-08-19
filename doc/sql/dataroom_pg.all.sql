@@ -270,6 +270,21 @@ CREATE INDEX IF NOT EXISTS idx_resource_parent_code ON dr_resource(parent_code);
 -- ----------------------------
 -- 操作日志表
 -- ----------------------------
+-- 旧版本表不包含 operation_summary，升级时允许一次性重建；新版本表重复初始化时保留数据。
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND table_name = 'dr_operation_log'
+          AND column_name = 'operation_summary'
+    ) THEN
+        DROP TABLE IF EXISTS dr_operation_log;
+    END IF;
+END
+$$;
+
 CREATE TABLE IF NOT EXISTS dr_operation_log
 (
     id                    VARCHAR(50)  NOT NULL,
@@ -277,14 +292,9 @@ CREATE TABLE IF NOT EXISTS dr_operation_log
     operator_id           VARCHAR(64)  DEFAULT NULL,
     operator_name         VARCHAR(128) DEFAULT NULL,
     operator_role         VARCHAR(255) DEFAULT NULL,
-    target_type           VARCHAR(64)  DEFAULT NULL,
-    target_id             VARCHAR(128) DEFAULT NULL,
-    target_name           VARCHAR(255) DEFAULT NULL,
-    action_type           VARCHAR(64)  DEFAULT NULL,
-    action_desc           VARCHAR(255) DEFAULT NULL,
-    business_type         VARCHAR(128) DEFAULT NULL,
-    business_name         VARCHAR(255) DEFAULT NULL,
-    business_desc         VARCHAR(255) DEFAULT NULL,
+    operation_summary     VARCHAR(512) DEFAULT NULL,
+    operation_description VARCHAR(512) DEFAULT NULL,
+    business_module       VARCHAR(255) DEFAULT NULL,
     request_uri           VARCHAR(512) DEFAULT NULL,
     request_method        VARCHAR(16)  DEFAULT NULL,
     client_ip             VARCHAR(64)  DEFAULT NULL,
@@ -292,7 +302,6 @@ CREATE TABLE IF NOT EXISTS dr_operation_log
     content_type          VARCHAR(128) DEFAULT NULL,
     query_params          TEXT         DEFAULT NULL,
     request_body          TEXT         DEFAULT NULL,
-    request_param_summary TEXT         DEFAULT NULL,
     result_status         VARCHAR(32)  DEFAULT NULL,
     response_code         INTEGER      DEFAULT NULL,
     response_message      VARCHAR(512) DEFAULT NULL,
@@ -300,7 +309,6 @@ CREATE TABLE IF NOT EXISTS dr_operation_log
     exception_stack       TEXT         DEFAULT NULL,
     request_time          TIMESTAMP    DEFAULT NULL,
     duration_ms           BIGINT       DEFAULT NULL,
-    handler_duration_ms   BIGINT       DEFAULT NULL,
     create_date           TIMESTAMP    DEFAULT NULL,
     create_user           VARCHAR(50)  DEFAULT NULL,
     update_date           TIMESTAMP    DEFAULT NULL,
@@ -315,14 +323,9 @@ COMMENT ON COLUMN dr_operation_log.trace_id IS '链路标识';
 COMMENT ON COLUMN dr_operation_log.operator_id IS '操作者ID';
 COMMENT ON COLUMN dr_operation_log.operator_name IS '操作者名称';
 COMMENT ON COLUMN dr_operation_log.operator_role IS '操作者角色';
-COMMENT ON COLUMN dr_operation_log.target_type IS '目标类型';
-COMMENT ON COLUMN dr_operation_log.target_id IS '目标标识';
-COMMENT ON COLUMN dr_operation_log.target_name IS '目标名称';
-COMMENT ON COLUMN dr_operation_log.action_type IS '动作类型';
-COMMENT ON COLUMN dr_operation_log.action_desc IS '动作说明';
-COMMENT ON COLUMN dr_operation_log.business_type IS '业务类型';
-COMMENT ON COLUMN dr_operation_log.business_name IS '业务名称';
-COMMENT ON COLUMN dr_operation_log.business_desc IS '业务说明';
+COMMENT ON COLUMN dr_operation_log.operation_summary IS '操作说明';
+COMMENT ON COLUMN dr_operation_log.operation_description IS '操作描述';
+COMMENT ON COLUMN dr_operation_log.business_module IS '业务模块';
 COMMENT ON COLUMN dr_operation_log.request_uri IS '请求地址';
 COMMENT ON COLUMN dr_operation_log.request_method IS '请求方法';
 COMMENT ON COLUMN dr_operation_log.client_ip IS '客户端IP';
@@ -330,7 +333,6 @@ COMMENT ON COLUMN dr_operation_log.user_agent IS 'User-Agent';
 COMMENT ON COLUMN dr_operation_log.content_type IS '内容类型';
 COMMENT ON COLUMN dr_operation_log.query_params IS '查询参数';
 COMMENT ON COLUMN dr_operation_log.request_body IS '请求体';
-COMMENT ON COLUMN dr_operation_log.request_param_summary IS '请求摘要';
 COMMENT ON COLUMN dr_operation_log.result_status IS '执行结果';
 COMMENT ON COLUMN dr_operation_log.response_code IS '响应码';
 COMMENT ON COLUMN dr_operation_log.response_message IS '响应消息';
@@ -338,7 +340,6 @@ COMMENT ON COLUMN dr_operation_log.exception_type IS '异常类型';
 COMMENT ON COLUMN dr_operation_log.exception_stack IS '异常堆栈';
 COMMENT ON COLUMN dr_operation_log.request_time IS '请求时间';
 COMMENT ON COLUMN dr_operation_log.duration_ms IS '总耗时';
-COMMENT ON COLUMN dr_operation_log.handler_duration_ms IS '处理耗时';
 COMMENT ON COLUMN dr_operation_log.create_date IS '创建时间';
 COMMENT ON COLUMN dr_operation_log.create_user IS '创建人';
 COMMENT ON COLUMN dr_operation_log.update_date IS '更新时间';
@@ -346,7 +347,7 @@ COMMENT ON COLUMN dr_operation_log.update_user IS '更新人';
 COMMENT ON COLUMN dr_operation_log.tenant_code IS '租户编码';
 COMMENT ON COLUMN dr_operation_log.del_flag IS '删除标识(0：正常，1：删除)';
 CREATE INDEX IF NOT EXISTS idx_operation_log_request_time ON dr_operation_log(request_time);
-CREATE INDEX IF NOT EXISTS idx_operation_log_target_type ON dr_operation_log(target_type);
+CREATE INDEX IF NOT EXISTS idx_operation_log_business_module ON dr_operation_log(business_module);
 
 -- ----------------------------
 -- 用户表

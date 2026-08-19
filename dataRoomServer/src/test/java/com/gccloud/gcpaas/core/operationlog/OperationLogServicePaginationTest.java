@@ -42,8 +42,8 @@ class OperationLogServicePaginationTest {
         for (int index = 0; index < 12; index++) {
             OperationLogEntity log = new OperationLogEntity();
             log.setOperatorName("admin");
-            log.setBusinessName("operation log");
-            log.setActionDesc("pagination test");
+            log.setBusinessModule("operation log");
+            log.setOperationSummary("pagination test");
             log.setRequestUri("/pagination-test/" + index);
             log.setRequestMethod("GET");
             log.setResultStatus("SUCCESS");

@@ -8,8 +8,6 @@ import com.gccloud.gcpaas.dataroom.core.constant.DataRoomRole;
 import com.gccloud.gcpaas.dataroom.core.constant.ResourceType;
 import com.gccloud.gcpaas.dataroom.core.entity.ResourceEntity;
 import com.gccloud.gcpaas.dataroom.core.mapper.ResourceMapper;
-import com.gccloud.gcpaas.dataroom.core.operationlog.annotation.OperationLogMeta;
-import com.gccloud.gcpaas.dataroom.core.operationlog.model.OperationLogDetailLevel;
 import com.gccloud.gcpaas.dataroom.core.resources.storage.ResourceFileVariant;
 import com.gccloud.gcpaas.dataroom.core.resources.storage.IResourceStorageService;
 import com.gccloud.gcpaas.dataroom.core.resources.storage.ResourceStoreRequest;
@@ -54,7 +52,7 @@ import java.util.UUID;
 @Slf4j
 @RequestMapping("/dataRoom/resource")
 @RestController
-@OperationLogMeta(targetType = "resource", businessType = "resource_manage", businessName = "素材管理")
+
 public class ResourceController {
 
     @Resource
@@ -105,7 +103,7 @@ public class ResourceController {
     @PostMapping("/upload")
     @RequiresRoles(value = DataRoomRole.DEVELOPER)
     @Operation(summary = "上传", description = "上传素材并保存资源记录")
-    @OperationLogMeta(actionType = "上传", actionDesc = "上传素材资源", businessType = "resource_upload", businessName = "素材上传", targetNameKey = "name", detailLevel = OperationLogDetailLevel.SUMMARY)
+    
     public Resp<ResourceEntity> upload(
             @RequestParam(value = "id", required = false) String id,
             @RequestParam(value = "file", required = false) MultipartFile file,
@@ -166,14 +164,14 @@ public class ResourceController {
 
     @GetMapping("/file/{id}")
     @Operation(summary = "读取资源文件", description = "公开代理读取素材主文件")
-    @OperationLogMeta(actionType = "读取", actionDesc = "读取素材文件", businessType = "resource_file", businessName = "素材文件", targetIdKey = "id", detailLevel = OperationLogDetailLevel.SUMMARY)
+    
     public void file(@PathVariable("id") String id, HttpServletRequest request, HttpServletResponse response) throws IOException {
         writeResourceFile(id, ResourceFileVariant.MAIN, request, response);
     }
 
     @GetMapping("/file/{id}/thumbnail")
     @Operation(summary = "读取资源封面", description = "公开代理读取素材封面文件")
-    @OperationLogMeta(actionType = "读取", actionDesc = "读取素材封面", businessType = "resource_file", businessName = "素材封面", targetIdKey = "id", detailLevel = OperationLogDetailLevel.SUMMARY)
+    
     public void thumbnail(@PathVariable("id") String id, HttpServletRequest request, HttpServletResponse response) throws IOException {
         writeResourceFile(id, ResourceFileVariant.THUMBNAIL, request, response);
     }
@@ -220,7 +218,7 @@ public class ResourceController {
     @PostMapping("/updateModelConfig")
     @RequiresRoles(value = DataRoomRole.DEVELOPER)
     @Operation(summary = "更新模型配置", description = "更新模型的配置和封面")
-    @OperationLogMeta(actionType = "修改", actionDesc = "更新模型配置", businessType = "resource_model", businessName = "模型资源", targetIdKey = "id", detailLevel = OperationLogDetailLevel.SUMMARY)
+    
     public Resp<Void> updateModelConfig(
             @RequestParam("id") String id,
             @RequestParam(value = "config", required = false) String config,
@@ -243,7 +241,7 @@ public class ResourceController {
     @PostMapping("/uploadModelCover")
     @RequiresRoles(value = DataRoomRole.DEVELOPER)
     @Operation(summary = "上传模型封面", description = "上传模型封面图片")
-    @OperationLogMeta(actionType = "上传", actionDesc = "上传模型封面", businessType = "resource_model", businessName = "模型资源", targetIdKey = "id", detailLevel = OperationLogDetailLevel.SUMMARY)
+    
     public Resp<ResourceEntity> uploadModelCover(
             @RequestParam("id") String id,
             @RequestParam(value = "file", required = false) MultipartFile file,

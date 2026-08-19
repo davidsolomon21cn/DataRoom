@@ -1,6 +1,6 @@
 package com.gccloud.gcpaas.dataroom.core.operationlog.service;
 
-import com.gccloud.gcpaas.dataroom.core.operationlog.model.OperationLogContext;
+import com.gccloud.gcpaas.dataroom.core.entity.OperationLogEntity;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -13,14 +13,13 @@ public class OperationLogPublisher {
     private final Executor executor;
     private final OperationLogPersistService persistService;
 
-    public void publish(OperationLogContext context) {
-        if (context == null) {
+    public void publish(OperationLogEntity entity) {
+        if (entity == null) {
             return;
         }
-        OperationLogContext snapshot = context.snapshot();
         executor.execute(() -> {
             try {
-                persistService.persist(snapshot);
+                persistService.persist(entity);
             } catch (Exception e) {
                 log.error("publish operation log failed", e);
             }

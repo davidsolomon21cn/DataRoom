@@ -27,6 +27,12 @@ spring:
 dataroom:
   # 前端地址：Hash 模式需包含 /#/，History 模式填普通根地址
   uiUrl: http://localhost:5173/#/
+  operation-log:
+    # 不记录操作日志的 HTTP 路径，支持 Spring PathPattern，例如 /a/**
+    exclude-paths:
+      - /dataRoom/operationLog/page
+      - /dataRoom/user/current
+      - /dataRoom/resource/file/**
   outboundHttp:
     # 允许内网转发的目标地址和端口
     allowedInternalTargets:

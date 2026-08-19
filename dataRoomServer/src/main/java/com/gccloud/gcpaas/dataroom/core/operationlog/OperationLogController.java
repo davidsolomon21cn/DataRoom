@@ -4,7 +4,6 @@ import com.gccloud.gcpaas.dataroom.core.bean.PageVo;
 import com.gccloud.gcpaas.dataroom.core.bean.Resp;
 import com.gccloud.gcpaas.dataroom.core.constant.DataRoomRole;
 import com.gccloud.gcpaas.dataroom.core.entity.OperationLogEntity;
-import com.gccloud.gcpaas.dataroom.core.operationlog.annotation.OperationLogMeta;
 import com.gccloud.gcpaas.dataroom.core.operationlog.dto.OperationLogQueryDTO;
 import com.gccloud.gcpaas.dataroom.core.operationlog.service.OperationLogService;
 import com.github.xiaoymin.knife4j.annotations.ApiSort;
@@ -19,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 @ApiSort(value = 210)
 @RestController
 @RequestMapping("/dataRoom/operationLog")
-@OperationLogMeta(targetType = "operation_log", businessType = "operation_log", businessName = "访问日志")
 public class OperationLogController {
 
     private final OperationLogService operationLogService;

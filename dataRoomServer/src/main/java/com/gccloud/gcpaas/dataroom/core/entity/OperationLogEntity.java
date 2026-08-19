@@ -15,22 +15,18 @@ public class OperationLogEntity extends BaseEntity {
     private String operatorId;
     private String operatorName;
     private String operatorRole;
-    private String targetType;
-    private String targetId;
-    private String targetName;
-    private String actionType;
-    private String actionDesc;
-    private String businessType;
-    private String businessName;
-    private String businessDesc;
+    /** 操作说明，取自 @Operation.summary() */
+    private String operationSummary;
+    /** 操作描述，取自 @Operation.description() */
+    private String operationDescription;
+    /** 业务模块，取自类级 @Tag.name() */
+    private String businessModule;
     private String requestUri;
     private String requestMethod;
     private String clientIp;
     private String userAgent;
     private String contentType;
     private String queryParams;
-    private String requestBody;
-    private String requestParamSummary;
     private String resultStatus;
     private Integer responseCode;
     private String responseMessage;
@@ -38,5 +34,4 @@ public class OperationLogEntity extends BaseEntity {
     private String exceptionStack;
     private Date requestTime;
     private Long durationMs;
-    private Long handlerDurationMs;
 }

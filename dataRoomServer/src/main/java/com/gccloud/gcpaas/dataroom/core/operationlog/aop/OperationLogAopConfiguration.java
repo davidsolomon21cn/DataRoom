@@ -1,9 +1,9 @@
 package com.gccloud.gcpaas.dataroom.core.operationlog.aop;
 
-import com.gccloud.gcpaas.dataroom.core.operationlog.annotation.OperationLogMeta;
+import com.gccloud.gcpaas.dataroom.core.operationlog.service.OperationLogPathMatcher;
 import com.gccloud.gcpaas.dataroom.core.operationlog.service.OperationLogPolicy;
 import com.gccloud.gcpaas.dataroom.core.operationlog.service.OperationLogPublisher;
-import com.gccloud.gcpaas.dataroom.core.operationlog.service.OperationLogResolver;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.aop.Advisor;
 import org.springframework.aop.support.DefaultPointcutAdvisor;
 import org.springframework.aop.support.StaticMethodMatcherPointcut;
@@ -18,24 +18,26 @@ import java.lang.reflect.Method;
 public class OperationLogAopConfiguration {
 
     @Bean
-    public OperationLogMethodInterceptor operationLogMethodInterceptor(OperationLogResolver operationLogResolver,
-                                                                       OperationLogPolicy operationLogPolicy,
-                                                                       OperationLogPublisher operationLogPublisher) {
-        return new OperationLogMethodInterceptor(operationLogResolver, operationLogPolicy, operationLogPublisher);
+    public OperationLogMethodInterceptor operationLogMethodInterceptor(OperationLogPolicy operationLogPolicy,
+                                                                       OperationLogPublisher operationLogPublisher,
+                                                                       OperationLogPathMatcher operationLogPathMatcher) {
+        return new OperationLogMethodInterceptor(operationLogPolicy, operationLogPublisher, operationLogPathMatcher);
     }
 
     @Bean
     public Advisor operationLogAdvisor(OperationLogMethodInterceptor operationLogMethodInterceptor) {
-        DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor(new OperationLogMetaPointcut(), operationLogMethodInterceptor);
+        DefaultPointcutAdvisor advisor = new DefaultPointcutAdvisor(new OperationLogOperationPointcut(), operationLogMethodInterceptor);
         advisor.setOrder(Ordered.LOWEST_PRECEDENCE - 20);
         return advisor;
     }
 
-    private static class OperationLogMetaPointcut extends StaticMethodMatcherPointcut {
+    /**
+     * 仅拦截方法上标注了 Swagger {@link Operation} 注解的方法，统一记录 HTTP 与 MCP(@Tool) 调用。
+     */
+    private static class OperationLogOperationPointcut extends StaticMethodMatcherPointcut {
         @Override
         public boolean matches(Method method, Class<?> targetClass) {
-            return AnnotatedElementUtils.hasAnnotation(targetClass, OperationLogMeta.class)
-                    || AnnotatedElementUtils.hasAnnotation(method, OperationLogMeta.class);
+            return AnnotatedElementUtils.hasAnnotation(method, Operation.class);
         }
     }
 }

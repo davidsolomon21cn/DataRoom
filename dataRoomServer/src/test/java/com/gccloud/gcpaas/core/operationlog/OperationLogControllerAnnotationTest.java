@@ -5,10 +5,11 @@ import com.gccloud.gcpaas.dataroom.core.dataset.DatasetController;
 import com.gccloud.gcpaas.dataroom.core.datasource.DataSourceController;
 import com.gccloud.gcpaas.dataroom.core.datasource.ExcelDataSourceController;
 import com.gccloud.gcpaas.dataroom.core.map.MapController;
-import com.gccloud.gcpaas.dataroom.core.operationlog.annotation.OperationLogMeta;
 import com.gccloud.gcpaas.dataroom.core.page.PageController;
 import com.gccloud.gcpaas.dataroom.core.resources.ResourceController;
 import com.gccloud.gcpaas.dataroom.core.user.UserController;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -16,12 +17,11 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 class OperationLogControllerAnnotationTest {
 
     @Test
-    void keyControllersExposeClassLevelDefaults() {
+    void keyControllersExposeBusinessModuleViaTag() {
         List<Class<?>> controllers = List.of(
                 PageController.class,
                 DatasetController.class,
@@ -33,36 +33,32 @@ class OperationLogControllerAnnotationTest {
                 CaptchaController.class
         );
         for (Class<?> controller : controllers) {
-            assertNotNull(controller.getAnnotation(OperationLogMeta.class), controller.getSimpleName());
+            assertNotNull(controller.getAnnotation(Tag.class),
+                    controller.getSimpleName() + " 应标注 @Tag 作为业务模块来源");
         }
     }
 
     @Test
-    void selectedMethodsExposePhaseOneOverridesOnly() {
-        assertNotNull(findMethod(PageController.class, "publish").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(PageController.class, "offline").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(PageController.class, "updatePageConfig").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(PageController.class, "updatePageConfig4Preview").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(PageController.class, "getPageConfig").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(PageController.class, "stageClear").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(PageController.class, "stageRollback").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(DatasetController.class, "run").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(DatasetController.class, "runTest").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(ExcelDataSourceController.class, "upload").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(ExcelDataSourceController.class, "createAndImport").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(ExcelDataSourceController.class, "reimport").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(ExcelDataSourceController.class, "viewData").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(ResourceController.class, "upload").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(ResourceController.class, "updateModelConfig").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(ResourceController.class, "uploadModelCover").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(UserController.class, "login").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(UserController.class, "updateProfile").getAnnotation(OperationLogMeta.class));
-        assertNotNull(findMethod(CaptchaController.class, "generate").getAnnotation(OperationLogMeta.class));
-
-        assertNull(findMethod(PageController.class, "updateName").getAnnotation(OperationLogMeta.class));
-        assertNull(findMethod(PageController.class, "stageDelete").getAnnotation(OperationLogMeta.class));
-        assertNull(findMethod(UserController.class, "current").getAnnotation(OperationLogMeta.class));
-        assertNull(findMethod(UserController.class, "roles").getAnnotation(OperationLogMeta.class));
+    void selectedMethodsAreLoggedViaOperationAnnotation() {
+        assertNotNull(findMethod(PageController.class, "publish").getAnnotation(Operation.class));
+        assertNotNull(findMethod(PageController.class, "offline").getAnnotation(Operation.class));
+        assertNotNull(findMethod(PageController.class, "updatePageConfig").getAnnotation(Operation.class));
+        assertNotNull(findMethod(PageController.class, "updatePageConfig4Preview").getAnnotation(Operation.class));
+        assertNotNull(findMethod(PageController.class, "getPageConfig").getAnnotation(Operation.class));
+        assertNotNull(findMethod(PageController.class, "stageClear").getAnnotation(Operation.class));
+        assertNotNull(findMethod(PageController.class, "stageRollback").getAnnotation(Operation.class));
+        assertNotNull(findMethod(DatasetController.class, "run").getAnnotation(Operation.class));
+        assertNotNull(findMethod(DatasetController.class, "runTest").getAnnotation(Operation.class));
+        assertNotNull(findMethod(ExcelDataSourceController.class, "upload").getAnnotation(Operation.class));
+        assertNotNull(findMethod(ExcelDataSourceController.class, "createAndImport").getAnnotation(Operation.class));
+        assertNotNull(findMethod(ExcelDataSourceController.class, "reimport").getAnnotation(Operation.class));
+        assertNotNull(findMethod(ExcelDataSourceController.class, "viewData").getAnnotation(Operation.class));
+        assertNotNull(findMethod(ResourceController.class, "upload").getAnnotation(Operation.class));
+        assertNotNull(findMethod(ResourceController.class, "updateModelConfig").getAnnotation(Operation.class));
+        assertNotNull(findMethod(ResourceController.class, "uploadModelCover").getAnnotation(Operation.class));
+        assertNotNull(findMethod(UserController.class, "login").getAnnotation(Operation.class));
+        assertNotNull(findMethod(UserController.class, "updateProfile").getAnnotation(Operation.class));
+        assertNotNull(findMethod(CaptchaController.class, "generate").getAnnotation(Operation.class));
     }
 
     private Method findMethod(Class<?> type, String name) {

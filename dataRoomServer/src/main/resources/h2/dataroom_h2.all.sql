@@ -168,6 +168,21 @@ CREATE INDEX IF NOT EXISTS idx_resource_parent_code ON dr_resource(parent_code);
 -- ----------------------------
 -- 操作日志表
 -- ----------------------------
+-- 旧版本表不包含 operation_summary，升级时允许一次性重建；新版本表重复初始化时保留数据。
+EXECUTE IMMEDIATE (
+    SELECT CASE
+        WHEN NOT EXISTS (
+            SELECT 1
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = CURRENT_SCHEMA()
+              AND UPPER(TABLE_NAME) = 'DR_OPERATION_LOG'
+              AND UPPER(COLUMN_NAME) = 'OPERATION_SUMMARY'
+        )
+        THEN 'DROP TABLE IF EXISTS dr_operation_log'
+        ELSE 'SET @dr_operation_log_schema_current = TRUE'
+    END
+);
+
 CREATE TABLE IF NOT EXISTS dr_operation_log
 (
     id                   VARCHAR(50)  NOT NULL COMMENT '主键',
@@ -175,14 +190,9 @@ CREATE TABLE IF NOT EXISTS dr_operation_log
     operator_id          VARCHAR(64)  DEFAULT NULL COMMENT '操作者ID',
     operator_name        VARCHAR(128) DEFAULT NULL COMMENT '操作者名称',
     operator_role        VARCHAR(255) DEFAULT NULL COMMENT '操作者角色',
-    target_type          VARCHAR(64)  DEFAULT NULL COMMENT '目标类型',
-    target_id            VARCHAR(128) DEFAULT NULL COMMENT '目标标识',
-    target_name          VARCHAR(255) DEFAULT NULL COMMENT '目标名称',
-    action_type          VARCHAR(64)  DEFAULT NULL COMMENT '动作类型',
-    action_desc          VARCHAR(255) DEFAULT NULL COMMENT '动作说明',
-    business_type        VARCHAR(128) DEFAULT NULL COMMENT '业务类型',
-    business_name        VARCHAR(255) DEFAULT NULL COMMENT '业务名称',
-    business_desc        VARCHAR(255) DEFAULT NULL COMMENT '业务说明',
+    operation_summary    VARCHAR(512) DEFAULT NULL COMMENT '操作说明',
+    operation_description VARCHAR(512) DEFAULT NULL COMMENT '操作描述',
+    business_module      VARCHAR(255) DEFAULT NULL COMMENT '业务模块',
     request_uri          VARCHAR(512) DEFAULT NULL COMMENT '请求地址',
     request_method       VARCHAR(16)  DEFAULT NULL COMMENT '请求方法',
     client_ip            VARCHAR(64)  DEFAULT NULL COMMENT '客户端IP',
@@ -190,7 +200,6 @@ CREATE TABLE IF NOT EXISTS dr_operation_log
     content_type         VARCHAR(128) DEFAULT NULL COMMENT '内容类型',
     query_params         CLOB         DEFAULT NULL COMMENT '查询参数',
     request_body         CLOB         DEFAULT NULL COMMENT '请求体',
-    request_param_summary CLOB        DEFAULT NULL COMMENT '请求摘要',
     result_status        VARCHAR(32)  DEFAULT NULL COMMENT '执行结果',
     response_code        INT          DEFAULT NULL COMMENT '响应码',
     response_message     VARCHAR(512) DEFAULT NULL COMMENT '响应消息',
@@ -198,7 +207,6 @@ CREATE TABLE IF NOT EXISTS dr_operation_log
     exception_stack      CLOB         DEFAULT NULL COMMENT '异常堆栈',
     request_time         TIMESTAMP    DEFAULT NULL COMMENT '请求时间',
     duration_ms          BIGINT       DEFAULT NULL COMMENT '总耗时',
-    handler_duration_ms  BIGINT       DEFAULT NULL COMMENT '处理耗时',
     create_date          TIMESTAMP    DEFAULT NULL COMMENT '创建时间',
     create_user          VARCHAR(50)  DEFAULT NULL COMMENT '创建人',
     update_date          TIMESTAMP    DEFAULT NULL COMMENT '更新时间',
@@ -208,7 +216,7 @@ CREATE TABLE IF NOT EXISTS dr_operation_log
     PRIMARY KEY (id)
 );
 CREATE INDEX IF NOT EXISTS idx_operation_log_request_time ON dr_operation_log(request_time);
-CREATE INDEX IF NOT EXISTS idx_operation_log_target_type ON dr_operation_log(target_type);
+CREATE INDEX IF NOT EXISTS idx_operation_log_business_module ON dr_operation_log(business_module);
 
 -- ----------------------------
 -- 用户表

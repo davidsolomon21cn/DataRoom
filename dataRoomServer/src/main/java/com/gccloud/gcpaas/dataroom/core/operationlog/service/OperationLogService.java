@@ -19,10 +19,10 @@ public class OperationLogService extends ServiceImpl<OperationLogMapper, Operati
         if (StringUtils.isNotBlank(queryDTO.getKeyword())) {
             queryWrapper.and(wrapper -> wrapper
                     .like(OperationLogEntity::getOperatorName, queryDTO.getKeyword())
-                    .or().like(OperationLogEntity::getBusinessName, queryDTO.getKeyword())
-                    .or().like(OperationLogEntity::getActionDesc, queryDTO.getKeyword())
-                    .or().like(OperationLogEntity::getRequestUri, queryDTO.getKeyword())
-                    .or().like(OperationLogEntity::getTargetName, queryDTO.getKeyword()));
+                    .or().like(OperationLogEntity::getBusinessModule, queryDTO.getKeyword())
+                    .or().like(OperationLogEntity::getOperationSummary, queryDTO.getKeyword())
+                    .or().like(OperationLogEntity::getOperationDescription, queryDTO.getKeyword())
+                    .or().like(OperationLogEntity::getRequestUri, queryDTO.getKeyword()));
         }
         if (StringUtils.isNotBlank(queryDTO.getResultStatus())) {
             queryWrapper.eq(OperationLogEntity::getResultStatus, queryDTO.getResultStatus());
@@ -32,13 +32,9 @@ public class OperationLogService extends ServiceImpl<OperationLogMapper, Operati
                 OperationLogEntity::getOperatorId,
                 OperationLogEntity::getOperatorName,
                 OperationLogEntity::getOperatorRole,
-                OperationLogEntity::getTargetType,
-                OperationLogEntity::getTargetId,
-                OperationLogEntity::getTargetName,
-                OperationLogEntity::getActionType,
-                OperationLogEntity::getActionDesc,
-                OperationLogEntity::getBusinessType,
-                OperationLogEntity::getBusinessName,
+                OperationLogEntity::getBusinessModule,
+                OperationLogEntity::getOperationSummary,
+                OperationLogEntity::getOperationDescription,
                 OperationLogEntity::getRequestUri,
                 OperationLogEntity::getRequestMethod,
                 OperationLogEntity::getClientIp,

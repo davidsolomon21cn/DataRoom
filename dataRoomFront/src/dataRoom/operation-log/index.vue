@@ -100,7 +100,7 @@ onMounted(() => {
 <template>
   <div class="dr-operation-log">
     <div class="search-area">
-      <el-input v-model="searchKeyword" class="search-input" placeholder="请输入操作人、业务名称或访问地址" clearable @keyup.enter="handleSearch" />
+      <el-input v-model="searchKeyword" class="search-input" placeholder="请输入操作人、业务模块或访问地址" clearable @keyup.enter="handleSearch" />
       <el-select v-model="resultStatus" class="status-select" placeholder="结果状态" clearable>
         <el-option label="成功" value="SUCCESS" />
         <el-option label="失败" value="FAILURE" />
@@ -119,14 +119,14 @@ onMounted(() => {
               <span>{{ row.operatorName || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="businessName" label="业务" min-width="120">
+          <el-table-column prop="businessModule" label="业务模块" min-width="120">
             <template #default="{ row }">
-              <span>{{ row.businessName || '-' }}</span>
+              <span>{{ row.businessModule || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="actionDesc" label="操作说明" min-width="140">
+          <el-table-column prop="operationSummary" label="操作说明" min-width="140">
             <template #default="{ row }">
-              <span>{{ row.actionDesc || row.actionType || '-' }}</span>
+              <span>{{ row.operationSummary || row.operationDescription || '-' }}</span>
             </template>
           </el-table-column>
           <el-table-column prop="requestUri" label="访问地址" min-width="260" show-overflow-tooltip />

@@ -7,13 +7,9 @@ export interface OperationLogEntity {
   operatorId?: string
   operatorName?: string
   operatorRole?: string
-  targetType?: string
-  targetId?: string
-  targetName?: string
-  actionType?: string
-  actionDesc?: string
-  businessType?: string
-  businessName?: string
+  businessModule?: string
+  operationSummary?: string
+  operationDescription?: string
   requestUri?: string
   requestMethod?: string
   clientIp?: string

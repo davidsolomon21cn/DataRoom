@@ -3,6 +3,7 @@ package com.gccloud.gcpaas.dataroom.core.config;
 import com.gccloud.gcpaas.dataroom.core.config.bean.Cors;
 import com.gccloud.gcpaas.dataroom.core.config.bean.Cas;
 import com.gccloud.gcpaas.dataroom.core.config.bean.Jwt;
+import com.gccloud.gcpaas.dataroom.core.config.bean.OperationLogConfig;
 import com.gccloud.gcpaas.dataroom.core.config.bean.OutboundHttp;
 import com.gccloud.gcpaas.dataroom.core.config.bean.ResourceBean;
 import com.gccloud.gcpaas.dataroom.core.config.bean.Sso;
@@ -26,6 +27,10 @@ public class DataRoomConfig {
      * 私钥
      */
     private String privateKey;
+    /**
+     * 操作日志配置。
+     */
+    private OperationLogConfig operationLog = new OperationLogConfig();
     /**
      * jwt
      */

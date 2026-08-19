@@ -12,7 +12,6 @@ import com.gccloud.gcpaas.dataroom.core.datasource.service.DataSourceMetadataSer
 import com.gccloud.gcpaas.dataroom.core.datasource.service.MqttDatasourceConnectionService;
 import com.gccloud.gcpaas.dataroom.core.entity.DataSourceEntity;
 import com.gccloud.gcpaas.dataroom.core.mapper.DataSourceMapper;
-import com.gccloud.gcpaas.dataroom.core.operationlog.annotation.OperationLogMeta;
 import com.gccloud.gcpaas.dataroom.core.util.CodeWorker;
 import com.github.xiaoymin.knife4j.annotations.ApiSort;
 import com.google.common.collect.Lists;
@@ -38,7 +37,7 @@ import java.util.List;
 @RestController
 @Controller
 @RequestMapping("/dataRoom/dataSource")
-@OperationLogMeta(targetType = "datasource", businessType = "datasource_manage", businessName = "数据源管理")
+
 public class DataSourceController {
 
     @Resource
@@ -82,7 +81,6 @@ public class DataSourceController {
         List<DataSourceEntity> list = datasourceMapper.selectList(queryWrapper);
         return Resp.success(list);
     }
-
 
     @GetMapping("/detail/{code}")
     @RequiresRoles(value = DataRoomRole.DEVELOPER)
