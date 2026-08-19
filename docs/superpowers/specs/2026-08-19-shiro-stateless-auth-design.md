@@ -33,7 +33,7 @@ sessionManager.setSessionIdCookieEnabled(false);
 sessionManager.setSessionIdUrlRewritingEnabled(false);
 ```
 
-关闭 Cookie 后，Shiro 不再从请求中的历史 `JSESSIONID` 恢复 Session，也不会向响应写入新的 `JSESSIONID`。
+关闭 Cookie 后，Shiro 不再从 Cookie 恢复 Session，也不会向响应写入新的 `JSESSIONID`。`setSessionIdUrlRewritingEnabled(false)` 只关闭响应 URL 重写，Shiro 2.2.1 仍可能从请求查询参数或路径段解析 Session ID。因此实现必须继承 `DefaultWebSessionManager` 并覆盖 `getSessionId(ServletRequest, ServletResponse)`，始终返回 `null`，统一忽略所有请求端 Session ID 来源。
 
 ### 禁止 Subject 状态持久化
 
@@ -90,6 +90,7 @@ securityManager.setSubjectDAO(subjectDAO);
 
 - 同一个有效 Token 并发请求两个受保护接口，均成功且不出现 `StoppedSessionException`。
 - 请求携带旧或伪造 `JSESSIONID` 时，认证结果仅由 DataRoom Token 决定。
+- 请求携带一个真实存在的 Session ID 查询参数或路径参数时，Shiro 也不得恢复该 Session。
 - 响应不包含 `Set-Cookie: JSESSIONID`。
 - Token 撤销后再次访问返回 401。
 - `@RequiresRoles` 对 manager、developer、sharer 继续生效。

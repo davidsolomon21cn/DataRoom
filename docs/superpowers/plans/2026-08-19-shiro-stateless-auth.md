@@ -152,8 +152,12 @@ private static final String STATELESS_OAUTH = "noSessionCreation,OAUTH";
 Add imports:
 
 ```java
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import org.apache.shiro.mgt.DefaultSessionStorageEvaluator;
 import org.apache.shiro.mgt.DefaultSubjectDAO;
+
+import java.io.Serializable;
 ```
 
 Update `sessionManager()` so the existing validation settings remain and Session ID transport is disabled:
@@ -161,12 +165,24 @@ Update `sessionManager()` so the existing validation settings remain and Session
 ```java
 @Bean
 public SessionManager sessionManager() {
-    DefaultWebSessionManager sessionManager = new DefaultWebSessionManager();
+    DefaultWebSessionManager sessionManager = new StatelessWebSessionManager();
     sessionManager.setSessionValidationSchedulerEnabled(false);
     sessionManager.setDeleteInvalidSessions(false);
     sessionManager.setSessionIdCookieEnabled(false);
     sessionManager.setSessionIdUrlRewritingEnabled(false);
     return sessionManager;
+}
+```
+
+Add this nested class at the end of `ShiroConfiguration` so Shiro cannot restore a Session from Cookie, query parameter, or path segment:
+
+```java
+private static class StatelessWebSessionManager extends DefaultWebSessionManager {
+
+    @Override
+    protected Serializable getSessionId(ServletRequest request, ServletResponse response) {
+        return null;
+    }
 }
 ```
 
@@ -234,6 +250,8 @@ import jakarta.servlet.http.Cookie;
 import org.apache.shiro.authc.AuthenticationInfo;
 import org.apache.shiro.authc.AuthenticationToken;
 import org.apache.shiro.authc.SimpleAuthenticationInfo;
+import org.apache.shiro.session.Session;
+import org.apache.shiro.session.mgt.DefaultSessionContext;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.web.subject.WebSubject;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -244,8 +262,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 ```
 
 Add the test method:
@@ -282,11 +302,11 @@ void concurrentTokenLoginsIgnoreJsessionIdAndCreateNoSession() throws Exception 
                 executor.submit(login),
                 executor.submit(login)
         );
-        ready.await();
+        assertTrue(ready.await(5, TimeUnit.SECONDS));
         start.countDown();
 
         for (Future<MockHttpServletResponse> future : futures) {
-            assertNull(future.get().getCookie("JSESSIONID"));
+            assertNull(future.get(5, TimeUnit.SECONDS).getCookie("JSESSIONID"));
         }
     } finally {
         executor.shutdownNow();
@@ -304,6 +324,32 @@ private static ShiroAuthRealm acceptingRealm() {
             return new SimpleAuthenticationInfo(token.getPrincipal(), token.getCredentials(), getName());
         }
     };
+}
+```
+
+Add a test that creates a real Shiro Session, supplies its ID through the request URL, and proves the stateless manager ignores it:
+
+```java
+@Test
+void securityManagerIgnoresValidSessionIdFromRequestUrl() {
+    ShiroConfiguration configuration = new ShiroConfiguration();
+    SessionManager sessionManager = configuration.sessionManager();
+    Session existingSession = sessionManager.start(new DefaultSessionContext());
+    DefaultWebSecurityManager securityManager = assertInstanceOf(
+            DefaultWebSecurityManager.class,
+            configuration.securityManager(acceptingRealm(), sessionManager)
+    );
+    MockHttpServletRequest request = new MockHttpServletRequest();
+    request.setQueryString("JSESSIONID=" + existingSession.getId());
+    request.setParameter("JSESSIONID", existingSession.getId().toString());
+
+    Subject subject = new WebSubject.Builder(
+            securityManager,
+            request,
+            new MockHttpServletResponse()
+    ).buildWebSubject();
+
+    assertNull(subject.getSession(false));
 }
 ```
 

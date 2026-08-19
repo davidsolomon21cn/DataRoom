@@ -2,7 +2,11 @@ package com.gccloud.gcpaas.dataroom.core.shiro;
 
 import com.gccloud.gcpaas.dataroom.core.config.DataRoomConfig;
 import jakarta.servlet.Filter;
+import jakarta.servlet.ServletRequest;
+import jakarta.servlet.ServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.shiro.mgt.DefaultSessionStorageEvaluator;
+import org.apache.shiro.mgt.DefaultSubjectDAO;
 import org.apache.shiro.mgt.SecurityManager;
 import org.apache.shiro.session.mgt.SessionManager;
 import org.apache.shiro.spring.LifecycleBeanPostProcessor;
@@ -16,6 +20,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
+import java.io.Serializable;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -27,22 +32,32 @@ public class ShiroConfiguration {
 
     private static final String OAUTH = "OAUTH";
 
-    private static final String ANON = "anon";
+    private static final String STATELESS_ANON = "noSessionCreation,anon";
+
+    private static final String STATELESS_OAUTH = "noSessionCreation,OAUTH";
 
 
     @Bean
     public SessionManager sessionManager() {
-        DefaultWebSessionManager sessionManager = new DefaultWebSessionManager();
+        DefaultWebSessionManager sessionManager = new StatelessWebSessionManager();
         sessionManager.setSessionValidationSchedulerEnabled(false);
         sessionManager.setDeleteInvalidSessions(false);
+        sessionManager.setSessionIdCookieEnabled(false);
+        sessionManager.setSessionIdUrlRewritingEnabled(false);
         return sessionManager;
     }
 
     @Bean
     public SecurityManager securityManager(ShiroAuthRealm shiroAuthRealm, SessionManager sessionManager) {
+        DefaultSessionStorageEvaluator sessionStorageEvaluator = new DefaultSessionStorageEvaluator();
+        sessionStorageEvaluator.setSessionStorageEnabled(false);
+        DefaultSubjectDAO subjectDAO = new DefaultSubjectDAO();
+        subjectDAO.setSessionStorageEvaluator(sessionStorageEvaluator);
+
         DefaultWebSecurityManager securityManager = new DefaultWebSecurityManager();
         securityManager.setRealm(shiroAuthRealm);
         securityManager.setSessionManager(sessionManager);
+        securityManager.setSubjectDAO(subjectDAO);
         securityManager.setRememberMeManager(null);
         return securityManager;
     }
@@ -65,22 +80,22 @@ public class ShiroConfiguration {
         shiroFilter.setFilters(filters);
         filters.put(OAUTH, new ShiroAuthFilter(dataRoomConfig.getJwt().getTokenKey()));
         Map<String, String> filterMap = new LinkedHashMap<>();
-        filterMap.put("/dataRoom/captcha/**", ANON);
-        filterMap.put("/dataRoom/user/login", ANON);
-        filterMap.put("/dataRoom/user/login/**", ANON);
-        filterMap.put("/cas/login", ANON);
+        filterMap.put("/dataRoom/captcha/**", STATELESS_ANON);
+        filterMap.put("/dataRoom/user/login", STATELESS_ANON);
+        filterMap.put("/dataRoom/user/login/**", STATELESS_ANON);
+        filterMap.put("/cas/login", STATELESS_ANON);
 
         // Knife4j doc.html 需要
-        filterMap.put("/webjars/**", ANON);
-        filterMap.put("/v3/api-docs/**", ANON);
-        filterMap.put("/doc.html/**", ANON);
+        filterMap.put("/webjars/**", STATELESS_ANON);
+        filterMap.put("/v3/api-docs/**", STATELESS_ANON);
+        filterMap.put("/doc.html/**", STATELESS_ANON);
         // /h2-console
-        filterMap.put("/h2-console/**", ANON);
+        filterMap.put("/h2-console/**", STATELESS_ANON);
         // 静态资源
-        filterMap.put("/static/**", ANON);
+        filterMap.put("/static/**", STATELESS_ANON);
         // 非 local 存储资源代理访问，暂时公开不鉴权
-        filterMap.put("/dataRoom/resource/file/**", ANON);
-        filterMap.put("/**", OAUTH);
+        filterMap.put("/dataRoom/resource/file/**", STATELESS_ANON);
+        filterMap.put("/**", STATELESS_OAUTH);
         shiroFilter.setFilterChainDefinitionMap(filterMap);
         return shiroFilter;
     }
@@ -102,5 +117,13 @@ public class ShiroConfiguration {
         AuthorizationAttributeSourceAdvisor advisor = new AuthorizationAttributeSourceAdvisor();
         advisor.setSecurityManager(securityManager);
         return advisor;
+    }
+
+    private static class StatelessWebSessionManager extends DefaultWebSessionManager {
+
+        @Override
+        protected Serializable getSessionId(ServletRequest request, ServletResponse response) {
+            return null;
+        }
     }
 }
