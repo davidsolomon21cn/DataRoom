@@ -35,7 +35,7 @@
         <mongodb.jdbc.version>3.0.6</mongodb.jdbc.version>
         <kingbase.jdbc.version>9.0.1</kingbase.jdbc.version>
         <clickhouse.jdbc.version>0.9.8</clickhouse.jdbc.version>
-        <mariadb.jdbc.version>3.5.8</mariadb.jdbc.version>
+        <mariadb.jdbc.version>3.5.10</mariadb.jdbc.version>
         <oceanbase.jdbc.version>2.4.12</oceanbase.jdbc.version>
         <hive.jdbc.version>4.2.0</hive.jdbc.version>
         <tdengine.jdbc.version>3.8.3</tdengine.jdbc.version>
